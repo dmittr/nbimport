@@ -19,7 +19,7 @@ function curl_get(){
 function curl_patch(){
 	query=$1
 	data=$(echo $2 |tr -s "'" "\"")
-	curl -s --location --request PATCH -H "Authorization: Token $TOKEN" -H "Content-Type: application/json" $NETBOX/api/$1 --data "$data" 1>/dev/null
+	curl -s --location --request PATCH -H "Authorization: Token $TOKEN" -H "Content-Type: application/json" "$NETBOX/api/$1" --data "$data" 1>/dev/null
 }
 function curl_post(){
 	query=$1
@@ -113,19 +113,19 @@ for hostinfofile in ${DIR}*.hostinfo ; do
 	done
 
 # Сеть
-	IFCount=$(echo "${ipa}"|grep -c "^[0-9]*:")
+	IFCount=$(echo "${ipa}"|grep -c "^[[:digit:]]*:")
 	ptr=0
 	for i in $(seq 1 ${IFCount}) ; do
-		ptr=$(( $(echo "${ipa}" | tail -n +$(($ptr+1)) | grep -m 1 -n "^[0-9]*: " | cut -d ':' -f 1) + ${ptr} ))
-		IFName=$(echo "${ipa}"|tail -n +${ptr}|grep -m1 "^[0-9]*: "|cut -d ' ' -f 2|cut -d ':' -f 1)
-		IFState[$IFName]=$(echo "${ipa}"|tail -n +${ptr}|grep -o -m1 "state [a-Z]* " |cut -d ' ' -f 2)
-		IFMtu[$IFName]=$(echo "${ipa}"|tail -n +${ptr}|grep -o -m1 "mtu [0-9]* " |cut -d ' ' -f 2)
+		ptr=$(( $(echo "${ipa}" | tail -n +$(($ptr+1)) | grep -m 1 -n "^[[:digit:]]*: " | cut -d ':' -f 1) + ${ptr} ))
+		IFName=$(echo "${ipa}"|tail -n +${ptr}|grep -m1 "^[[:digit:]]*: "|cut -d ' ' -f 2|cut -d ':' -f 1)
+		IFState[$IFName]=$(echo "${ipa}"|tail -n +${ptr}|grep -o -m1 "state [[:alpha:]]* " |cut -d ' ' -f 2)
+		IFMtu[$IFName]=$(echo "${ipa}"|tail -n +${ptr}|grep -o -m1 "mtu [[:digit:]]* " |cut -d ' ' -f 2)
 		if [[ ${i} -eq ${IFCount} ]] ; then
 			IFBlock=$(echo -e "${ipa}\n\n\n"|tail -n +$(( ${ptr} + 1 )) |head -n -1)
 		else
-			IFBlock=$(echo "${ipa}"|tail -n +$(( ${ptr} + 1 )) |grep -B 999 -m1 "^[0-9]*: "|head -n -1)
+			IFBlock=$(echo "${ipa}"|tail -n +$(( ${ptr} + 1 )) |grep -B 999 -m1 "^[[:digit:]]*: "|head -n -1)
 		fi
-		IFMac[$IFName]=$(echo "${IFBlock}"|grep -o -m 1 "link\/[a-z]* [0-9a-f\:]*" | cut -d ' ' -f 2)
+		IFMac[$IFName]=$(echo "${IFBlock}"|grep -o -m 1 "link\/[[:alpha:]]* [0-9a-f\:]*" | cut -d ' ' -f 2)
 		IFType[$IFName]="0"
 		if [[ $(echo "${IFBlock}"|grep " mii_status ") ]] ; then
 			IFType[$IFName]="1000"
