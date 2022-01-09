@@ -4,6 +4,7 @@ NETBOX="http://netbox.tld"
 TOKEN="token123"
 DIR="./"
 LOG="${DIR}import.log"
+test -f nbimport.conf && source nbimport.conf
 
 function extract_block() {
 	file=$1
