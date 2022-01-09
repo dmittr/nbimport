@@ -434,7 +434,11 @@ for hostinfofile in ${DIR}*.hostinfo ; do
 	for i in $jinventory_ids ; do
 		name=$(echo "${jinventory}"|grep "id\":${i}"|jq .name)
 		part_id=$(echo "${jinventory}"|grep "id\":${i}"|jq .part_id)
-		echo "Found missing or manually added inventory with id=${i} name=${name} part_id=${part_id}. Set 'nbignore' tag to suppress this message"  >> ${LOG}
+		discovered=$(echo "${jinventory}"|grep "id\":${i}"|jq .discovered)
+		if [[ "${discovered}" == "true" ]] ; then
+			echo "Delete missing discovered inventory with name=${name} and id=${i}" >> ${LOG}
+		fi
+		# echo "Found missing or manually added inventory with id=${i} name=${name} part_id=${part_id}. Set 'nbignore' tag to suppress this message"  >> ${LOG}
 	done
 	rm -f ${hostinfofile}
 done
