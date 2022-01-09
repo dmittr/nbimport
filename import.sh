@@ -46,8 +46,7 @@ jmfr=$(curl_get "dcim/manufacturers/")
 jmfr_list=$(echo "${jmfr}"|jq -c '.results[]|{slug,id}'|sed -e 's/^{.slug.:.//g' -e 's/.,.id.:/ /g' -e 's/}//g')
 
 for hostinfofile in ${DIR}*.hostinfo ; do
-	date >> ${LOG}
-	echo "File ${hostinfofile}" >> ${LOG}
+
 # Обнуляем массивы данных с прошлых файлов
 	unset DMI; declare -A DMI
 	unset CPUManufacturer; declare -A CPUManufacturer
@@ -72,6 +71,8 @@ for hostinfofile in ${DIR}*.hostinfo ; do
 
 # Если файл есть, то режем на блоки и начинаем собирать инфу
 	test -f ${hostinfofile} || break
+	date >> ${LOG}
+	echo "File ${hostinfofile}" >> ${LOG}
 	hst=$(extract_block ${hostinfofile} "HST")
 	ipa=$(extract_block ${hostinfofile} "IPA")
 	dmd=$(extract_block ${hostinfofile} "DMD"|sed -e 's/: /:/g')
