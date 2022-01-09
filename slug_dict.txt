@@ -1,0 +1,4 @@
+-noname-:NO DIMM
+intel:Intel,Intel Corporation,Intel(R) Corporation
+samsung:Samsung
+hitachi:HGST
