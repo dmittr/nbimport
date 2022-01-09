@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# use some host to reach vfarm and gather hostinfo file
-# ssh vfarm 'echo %HST%;hostname -f;echo %IPA%;sudo ip -detail address show;echo %DMD%;sudo dmidecode;echo %BLK%;sudo lsblk -dbP --output NAME,SIZE,MODEL,SERIAL;echo %SMT%;sudo which smartctl && for i in $(lsblk -d --output NAME|tail -n +2); do echo %%SMT-$i; sudo smartctl -i /dev/$i; done ;echo %VDS%; sudo virsh domstats;echo %END%' | cat > $(hostname -f)_$(date +%s).hostinfo
-
 NETBOX="http://netbox.tld"
 TOKEN="token123"
 DIR="./"
