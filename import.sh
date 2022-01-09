@@ -437,4 +437,5 @@ for hostinfofile in ${DIR}*.hostinfo ; do
 		part_id=$(echo "${jinventory}"|grep "id\":${i}"|jq .part_id)
 		echo "Found missing or manually added inventory with id=${i} name=${name} part_id=${part_id}. Set 'nbignore' tag to suppress this message"  >> ${LOG}
 	done
+	rm -f ${hostinfofile}
 done
