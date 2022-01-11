@@ -190,7 +190,7 @@ for hostinfofile in ${DIR}*.hostinfo ; do
 		done
 		VDSMemory[$VDSName]=$(( ${VDSMemory[$VDSName]} / 1024 ))
 		VDSBLKData[$VDSName]="#### NBImport Block Devices\r\n| Name | Size | Path |\r\n| --- | --- | --- |\r\n${VDSBLKData[$VDSName]}\r\n***\r\n"
-		test "${VDSState[$VDSName]}" == "5" && VDSState[$VDSName]="0"
+		test "${VDSState[$VDSName]}" == "5" && VDSState[$VDSName]="0" || VDSState[$VDSName]="1"
 	done
 
 # Исправляем SCSI модели и серийные номера, которые ограничены в 16 байт
