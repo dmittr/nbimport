@@ -476,7 +476,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 				else
 					jblk=$(echo "${jinventory}" |grep  "name\":\"${i}\"")
 					if [[ "${jblk}" != *"part_id\":\"${BLKModel[$i]}\""* || "${jblk}" != *"serial\":\"${BLKSerial[$i]}\""* || "${jblk}" != *"description\":\"${BLKSize[$i]}\""* ]] ; then
-						elog 3 "${hst} Change inventory ${post_data}"
+						log 3 "${hst} Change inventory ${post_data}"
 						curl_patch "dcim/inventory-items/${j}/" "${post_data}" 1>/dev/null
 					fi
 					post_data=""
@@ -541,20 +541,19 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 	else
 		jiface=$(curl_get "virtualization/interfaces/?virtual_machine_id=${vmhost_id}")
 	fi
+	log 1 "${hst} Found interfaces from netbox ${jiface}"
 	if [[ -z "${vmhost_id}" ]] ; then 
 		jips=$(curl_get "ipam/ip-addresses/?device_id=${device_id}")
 	else
 		jips=$(curl_get "ipam/ip-addresses/?virtual_machine_id=${vmhost_id}")
 	fi
 	jips_string=$(echo -e "$jips" | ${J} .results[].address|tr -d '"'|tr -s '\n' ' ')
-	log 1 "$jips_string"
+	log 1 "${hst} Found ip addresses from netbox ${jips_string}"
 
 	for i in "${!IFState[@]}" ; do
 		if [[ "${i}" =~ ^(eth|bond|enp|p|vlan|br) ]] ; then
 			if [[ ! -z "${IFIPs[$i]}" ]] ; then
-				log 1 "${hst} Interface ${i}"
 				for ip in "${IFIPs[$i]}" ; do
-					log 1 "${hst} Found ip ${ip}"
 					if [[ " ${jips_string} " != *" ${ip} "* ]] ; then
 						jiface_id=$(echo "${jiface}"| ${J} ."results[]|select(.name == \"$i\").id")
 						log 3 "${hst} Create ip ${ip} - on ${i} (${jiface_id})"
@@ -563,13 +562,15 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 						else
 							curl_post "ipam/ip-addresses/" "{ 'address':'${ip}','family':'4','status':'active','assigned_object_type':'virtualization.vminterface','assigned_object_id':'${jiface_id}','tags':[${TAG_ID}] }" 1>/dev/null
 						fi
+					else
+						log 1 "${hst} Skip interface=${i}, ip=${ip}"
 					fi
 				done
 			fi
 		fi
 	done
 	mv ${hostinfofile} ${HOSTINFO_READY_DIR}
-	log 2 "$(basename ${hostinfofile}) (HOST: ${hst}) ready!"
+	log 2 "${hst} ($(basename ${hostinfofile})) ready!"
 done
 
 
