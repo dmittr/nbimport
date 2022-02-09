@@ -412,7 +412,6 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 		jinventory_ids=$(curl_get "dcim/inventory-items/?device_id=${device_id}" |${J} .'results[].id' | tr -d '"')
 # Материнская плата
 		jbaseboard=$(echo "${jinventory}" |grep  "name\":\"Base Board Information\"")
-		log 1 "${hst} Baseboard = $jbaseboard"
 		if [[ -z "${jbaseboard}" ]] ; then
 			log 3 "${hst} Create inventory Base Board Information ${DMI['BRDManufacturer']} ${DMI['BRDProductName']} ${DMI['BRDSerialNumber']}"
 			curl_post "dcim/inventory-items/" "{ 'device':'${device_id}','name':'Base Board Information','manufacturer':'$(mfr_id "${DMI['BRDManufacturer']}")','part_id':'${DMI['BRDProductName']}','serial':'${DMI['BRDSerialNumber']}','discovered':'true','tags':[${TAG_ID}] }" 1>/dev/null
