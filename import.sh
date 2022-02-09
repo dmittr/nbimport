@@ -2,7 +2,7 @@
 
 NETBOX="http://netbox.tld"
 TOKEN="mytoken"
-HOSTINFO_DIR="/home/nbimport"
+HOSTINFO_DIR="/home/nbimport/"
 HOSTINFO_SUFFIX="hostinfo"
 HOSTINFO_READY_DIR="/home/nbimport/ready"
 
@@ -93,7 +93,7 @@ J=$(which jq)
 C=$(which curl)
 
 HOSTINFO_FILES=$(ls ${HOSTINFO_DIR}*.${HOSTINFO_SUFFIX} 2>/dev/null)
-test -z "${HOSTINFO_FILES}" && log 2 "No files to process"
+test -z "${HOSTINFO_FILES}" && log 1 "No files to process from ${HOSTINFO_DIR}*.${HOSTINFO_SUFFIX}"
 test -z "${HOSTINFO_FILES}" && exit 0
 
 jmfr=$(curl_get "dcim/manufacturers/")
