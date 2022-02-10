@@ -359,7 +359,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 				fi
 			fi
 			log 1 "${hst} Cluster id = ${jcluster_id}"
-			jvms=$(curl_get "virtualization/virtual-machines/?cluster_id=${jcluster_id}"|${J} ".results[]" -c)
+			jvms=$(curl_get "virtualization/virtual-machines/?cluster_id=${jcluster_id}&limit=0"|${J} ".results[]" -c)
 			for vm in ${!VDSState[@]} ; do
 				jvm=$(echo "${jvms}"|grep "name\":\"${vm}\"")
 				jvms=$(echo "${jvms}"|grep -v "name\":\"${vm}\"")
@@ -409,8 +409,8 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 		fi
 # Инвентори
 		log 2 "${hst} Inventory sync"
-		jinventory=$(curl_get "dcim/inventory-items/?device_id=${device_id}" |${J} '.results[]' -c)
-		jinventory_ids=$(curl_get "dcim/inventory-items/?device_id=${device_id}" |${J} .'results[].id' | tr -d '"')
+		jinventory=$(curl_get "dcim/inventory-items/?device_id=${device_id}&discovered=true&limit=0" |${J} '.results[]' -c)
+		jinventory_ids=$(curl_get "dcim/inventory-items/?device_id=${device_id}&discovered=true&limit=0" |${J} .'results[].id' | tr -d '"')
 # Материнская плата
 		jbaseboard=$(echo "${jinventory}" |grep  "name\":\"Base Board Information\"")
 		if [[ -z "${jbaseboard}" ]] ; then
@@ -502,7 +502,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 		done
 	else
 # Блок обработки вирутальных машин
-		vmhost=$(curl_get "virtualization/virtual-machines/?name=${hst}"|${J} .results[0] -c|grep "name\":\"${hst}\"")
+		vmhost=$(curl_get "virtualization/virtual-machines/?name=${hst}&limit=0"|${J} .results[0] -c|grep "name\":\"${hst}\"")
 		if [[ -z "${vmhost}" ]] ; then
 			log 4 "${hst} Virtual Machine ${hst} not found. Sync your hypervisor first."
 		else
@@ -514,11 +514,11 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 # Еще один общий блок для гипервизоров и вируальных машин
 # Интерфейсы
 	if [[ -z "${vmhost_id}" ]] ; then 
-		jiface=$(curl_get "dcim/interfaces/?device_id=${device_id}")
-		jiface_disabled=$(curl_get "dcim/interfaces/?device_id=${device_id}&enabled=false")
+		jiface=$(curl_get "dcim/interfaces/?device_id=${device_id}&limit=0")
+		jiface_disabled=$(curl_get "dcim/interfaces/?device_id=${device_id}&enabled=false&limit=0")
 	else
 		jiface=$(curl_get "virtualization/interfaces/?virtual_machine_id=${vmhost_id}")
-		jiface_disabled=$(curl_get "virtualization/interfaces/?virtual_machine_id=${vmhost_id}&enabled=false")
+		jiface_disabled=$(curl_get "virtualization/interfaces/?virtual_machine_id=${vmhost_id}&enabled=false&limit=0")
 	fi
 	if [[ -z "${jiface}" ]] ; then
 		jiface_names=""
@@ -544,14 +544,14 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 
 # ip адреса
 	if [[ -z "${vmhost_id}" ]] ; then 
-		jiface=$(curl_get "dcim/interfaces/?device_id=${device_id}")
+		jiface=$(curl_get "dcim/interfaces/?device_id=${device_id}&limit=0")
 	else
-		jiface=$(curl_get "virtualization/interfaces/?virtual_machine_id=${vmhost_id}")
+		jiface=$(curl_get "virtualization/interfaces/?virtual_machine_id=${vmhost_id}&limit=0")
 	fi
 	if [[ -z "${vmhost_id}" ]] ; then 
-		jips=$(curl_get "ipam/ip-addresses/?device_id=${device_id}")
+		jips=$(curl_get "ipam/ip-addresses/?device_id=${device_id}&limit=0")
 	else
-		jips=$(curl_get "ipam/ip-addresses/?virtual_machine_id=${vmhost_id}")
+		jips=$(curl_get "ipam/ip-addresses/?virtual_machine_id=${vmhost_id}&limit=0")
 	fi
 	jips_string=$(echo -e "$jips" | ${J} .results[].address|tr -d '"'|tr -s '\n' ' ')
 	log 1 "${hst} Found ip addresses from netbox ${jips_string}"
