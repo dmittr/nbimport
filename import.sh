@@ -532,7 +532,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 	log 1 "${hst} Found interfaces from netbox ${jiface_names}"
 	for i in "${!IFState[@]}" ; do
 		if [[ "${i}" =~ ^(eth|bond|enp|p|vlan|br) ]] ; then
-			if [[ " ${jiface_names} " != *" ${i} "* ]] ; then
+			if [[ ! $(echo " ${jiface_names} " | grep "${i}" ) ]] ; then
 				log 3 "Create interface $i - mtu ${IFMtu[$i]} mac ${IFMac[$i]} type ${IFType[$i]}" 
 				if [[ -z "${vmhost_id}" ]] ; then 
 					curl_post "dcim/interfaces/" "{ 'device':'${device_id}','name':'${i}','type':'${IFType[$i]}','mac_address':'${IFMac[$i]}','mtu':'${IFMtu[$i]}','tags':[${TAG_ID}] }" 1>/dev/null
@@ -561,7 +561,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 		if [[ "${i}" =~ ^(eth|bond|enp|p|vlan|br) ]] ; then
 			if [[ ! -z "${IFIPs[$i]}" ]] ; then
 				for ip in "${IFIPs[$i]}" ; do
-					if [[ " ${jips_string} " != *" ${ip} "* ]] ; then
+					if [[ ! $(echo " ${jips_string} " | grep "${ip}" ) ]] ; then
 						jiface_id=$(echo "${jiface}"| ${J} ."results[]|select(.name == \"$i\").id")
 						log 3 "${hst} Create ip ${ip} - on ${i} (${jiface_id})"
 						if [[ -z "${vmhost_id}" ]] ; then
