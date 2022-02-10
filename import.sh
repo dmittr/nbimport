@@ -100,12 +100,12 @@ test $(which curl 2>/dev/null) || die "curl not found"
 J=$(which jq)
 C=$(which curl)
 
-mfr_id "noname" > /dev/null
-log 2 "Got Manufacturers list ${#ManufacturersList} bytes long"
-
 HOSTINFO_FILES=$(ls ${HOSTINFO_DIR}*.${HOSTINFO_SUFFIX} 2>/dev/null)
 test -z "${HOSTINFO_FILES}" && log 1 "No files to process from ${HOSTINFO_DIR}*.${HOSTINFO_SUFFIX}"
 test -z "${HOSTINFO_FILES}" && exit 0
+
+mfr_id "noname" > /dev/null
+log 2 "Got Manufacturers list ${#ManufacturersList} bytes long"
 
 for hostinfofile in ${HOSTINFO_FILES} ; do
 	log 1 "File=${hostinfofile} from ${HOSTINFO_DIR} by suffix ${HOSTINFO_SUFFIX}"
