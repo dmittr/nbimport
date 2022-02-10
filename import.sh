@@ -100,12 +100,12 @@ test $(which curl 2>/dev/null) || die "curl not found"
 J=$(which jq)
 C=$(which curl)
 
-HOSTINFO_FILES=$(ls ${HOSTINFO_DIR}*.${HOSTINFO_SUFFIX} 2>/dev/null)
-test -z "${HOSTINFO_FILES}" && log 1 "No files to process from ${HOSTINFO_DIR}*.${HOSTINFO_SUFFIX}"
-###########################################################################################################################################test -z "${HOSTINFO_FILES}" && exit 0
-
 mfr_id "noname" > /dev/null
 log 2 "Got Manufacturers list ${#ManufacturersList} bytes long"
+
+HOSTINFO_FILES=$(ls ${HOSTINFO_DIR}*.${HOSTINFO_SUFFIX} 2>/dev/null)
+test -z "${HOSTINFO_FILES}" && log 1 "No files to process from ${HOSTINFO_DIR}*.${HOSTINFO_SUFFIX}"
+test -z "${HOSTINFO_FILES}" && exit 0
 
 for hostinfofile in ${HOSTINFO_FILES} ; do
 	log 1 "File=${hostinfofile} from ${HOSTINFO_DIR} by suffix ${HOSTINFO_SUFFIX}"
@@ -529,6 +529,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 	else
 		jiface_names=$(echo "${jiface}" | ${J} '.results[].name' -r |tr -s '\n' ' ')
 	fi
+	log 1 "${hst} Found interfaces from netbox ${jiface_names}"
 	for i in "${!IFState[@]}" ; do
 		if [[ "${i}" =~ ^(eth|bond|enp|p|vlan|br) ]] ; then
 			if [[ " ${jiface_names} " != *" ${i} "* ]] ; then
