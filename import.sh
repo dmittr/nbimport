@@ -53,18 +53,15 @@ function curl_patch(){
 	query=$1
 	data=$(echo $2 |tr -s "'" "\"")
 	${C} -s --location --request PATCH -H "Authorization: Token $TOKEN" -H "Content-Type: application/json" "$NETBOX/api/$1" --data "$data"
-	log 1 "CURL_PATCH $NETBOX/api/$1 ${data:0:40}..." 
 }
 function curl_post(){
 	query=$1
 	data=$(echo $2 |tr -s "'" "\"")
 	${C} -s --location --request POST -H "Authorization: Token $TOKEN" -H "Content-Type: application/json" "$NETBOX/api/$1" --data "$data"
-	log 1 "CURL_POST $NETBOX/api/$1 ${data:0:40}..." 
 }
 function curl_delete(){
 	query=$1
 	${C} -s --location --request DELETE -H "Authorization: Token $TOKEN" -H "Content-Type: application/json" "$NETBOX/api/$1"
-	log 1 "CURL_DELETE mac_address $NETBOX/api/$1" 
 }
 
 function mfr_id(){
@@ -319,9 +316,6 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 			device_id=$(echo "$jdevice"|${J} .results[0].id)
 		else
 			jdevice=$(curl_get "dcim/devices/?name=${hst}")
-			echo "$jdevice"
-			echo "$jdevice"|${J} .
-			echo "$jdevice"|${J} .count
 			if [[ $(echo "$jdevice"|${J} .count) -eq 1 ]] ; then
 				device_id=$(echo "$jdevice"|${J} .results[0].id)
 			else
@@ -568,11 +562,15 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 				for ip in "${IFIPs[$i]}" ; do
 					if [[ ! $(echo " ${jips_string} " | grep "${ip}" ) ]] ; then
 						jiface_id=$(echo "${jiface}"| ${J} ."results[]|select(.name == \"$i\").id")
-						log 3 "${hst} Create ip ${ip} - on ${i} (${jiface_id})"
-						if [[ -z "${vmhost_id}" ]] ; then
-							curl_post "ipam/ip-addresses/" "{ 'address':'${ip}','family':'4','status':'active','assigned_object_type':'dcim.interface','assigned_object_id':'${jiface_id}','tags':[${TAG_ID}] }" 1>/dev/null
+						if [[ "${jiface_id}" == "null" || "${jiface_id}" == "" ]] ; then
+							log 4 "${hst}: Can't find interface_id for ${i}"
 						else
-							curl_post "ipam/ip-addresses/" "{ 'address':'${ip}','family':'4','status':'active','assigned_object_type':'virtualization.vminterface','assigned_object_id':'${jiface_id}','tags':[${TAG_ID}] }" 1>/dev/null
+							log 3 "${hst} Create ip ${ip} - on ${i} (${jiface_id})"
+							if [[ -z "${vmhost_id}" ]] ; then
+								curl_post "ipam/ip-addresses/" "{ 'address':'${ip}','family':'4','status':'active','assigned_object_type':'dcim.interface','assigned_object_id':'${jiface_id}','tags':[${TAG_ID}] }" 1>/dev/null
+							else
+								curl_post "ipam/ip-addresses/" "{ 'address':'${ip}','family':'4','status':'active','assigned_object_type':'virtualization.vminterface','assigned_object_id':'${jiface_id}','tags':[${TAG_ID}] }" 1>/dev/null
+							fi
 						fi
 					else
 						log 1 "${hst} Skip interface=${i}, ip=${ip}"
