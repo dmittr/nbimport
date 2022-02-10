@@ -12,12 +12,10 @@ LOG_LEVEL=3
 LOG_STDOUT=1
 LOGDATEFORMAT="%Y.%m.%d_%H:%M:%S"
 
-
 DIR=$(dirname $(readlink -f $0))
-SLUG_DICT="${DIR}/slug_dict.txt"
+SLUG_DICT=$(cat ${DIR}/slug_dict.txt)
 
 test -f "${DIR}/nbimport.conf" && source "${DIR}/nbimport.conf" || exit 1
-
 
 LOG_LEVEL=$(($LOG_LEVEL + 0))
 LOG_STDOUT=$(($LOG_STDOUT + 0))
@@ -68,16 +66,26 @@ function curl_delete(){
 	${C} -s --location --request DELETE -H "Authorization: Token $TOKEN" -H "Content-Type: application/json" "$NETBOX/api/$1"
 	log 1 "CURL_DELETE mac_address $NETBOX/api/$1" 
 }
+
 function mfr_id(){
-	mfr=$1
-	slug=$(grep -i -m1 "${mfr}" ${SLUG_DICT}|cut -d ':' -f 1)
-	id=$(echo "$jmfr_list" |grep  "^${slug} " | cut -d ' ' -f 2)
-	if [[ -z "${id}" ]] ; then
-		echo "Manufacturer '${mfr}' $id $slug slug_dict.txt not found!"
-		exit 1
-	else
-		echo $id
-	fi
+	string=$(echo $1|tr -d "-" | tr -d ' '| grep -o "[[:alpha:]]*")
+	test -z "${ManufacturersList}" && ManufacturersList=$(curl_get "dcim/manufacturers/"|${J} -c '.results[]|{slug,id}'|sed -e 's/\"[a-Z]*\"://g' -e 's/[\{\}\"]//g'|tr -d "-" | tr -d ' ')
+	while read -r i ; do
+		echo ${string} | grep -q -i "^$(echo $i | cut -d ',' -f 1)"
+		if [[ $? -eq 0 ]] ; then
+			echo $i | cut -d ',' -f 2
+			break
+		fi
+	done <<< $(echo "${ManufacturersList}")
+	while read -r i ; do
+		for j in $(echo $i|cut -d ':' -f 2-|tr -s ',' ' ') ; do
+			echo ${string} | grep -q "^${j}"
+			if [[ $? -eq 0 ]] ; then
+				echo "${ManufacturersList}" | grep "^$(echo $i|cut -d ':' -f 1)" | cut -d ',' -f 2
+				break
+			fi			
+		done
+	done <<< $(echo "${SLUG_DICT}")	
 }
 
 log 2 "Start"
@@ -94,11 +102,10 @@ C=$(which curl)
 
 HOSTINFO_FILES=$(ls ${HOSTINFO_DIR}*.${HOSTINFO_SUFFIX} 2>/dev/null)
 test -z "${HOSTINFO_FILES}" && log 1 "No files to process from ${HOSTINFO_DIR}*.${HOSTINFO_SUFFIX}"
-test -z "${HOSTINFO_FILES}" && exit 0
+###########################################################################################################################################test -z "${HOSTINFO_FILES}" && exit 0
 
-jmfr=$(curl_get "dcim/manufacturers/")
-jmfr_list=$(echo "${jmfr}"|${J} -c '.results[]|{slug,id}'|sed -e 's/^{.slug.:.//g' -e 's/.,.id.:/ /g' -e 's/}//g')
-log 2 "Getting Manufacturers list ${#jmfr_list} bytes long"
+mfr_id "noname" > /dev/null
+log 2 "Got Manufacturers list ${#ManufacturersList} bytes long"
 
 for hostinfofile in ${HOSTINFO_FILES} ; do
 	log 1 "File=${hostinfofile} from ${HOSTINFO_DIR} by suffix ${HOSTINFO_SUFFIX}"
