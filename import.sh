@@ -548,7 +548,6 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 	else
 		jiface=$(curl_get "virtualization/interfaces/?virtual_machine_id=${vmhost_id}")
 	fi
-	log 1 "${hst} Found interfaces from netbox ${jiface}"
 	if [[ -z "${vmhost_id}" ]] ; then 
 		jips=$(curl_get "ipam/ip-addresses/?device_id=${device_id}")
 	else
