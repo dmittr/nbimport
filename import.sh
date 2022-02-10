@@ -521,13 +521,18 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 # Интерфейсы
 	if [[ -z "${vmhost_id}" ]] ; then 
 		jiface=$(curl_get "dcim/interfaces/?device_id=${device_id}")
+		jiface_disabled=$(curl_get "dcim/interfaces/?device_id=${device_id}&enabled=false")
 	else
 		jiface=$(curl_get "virtualization/interfaces/?virtual_machine_id=${vmhost_id}")
+		jiface_disabled=$(curl_get "virtualization/interfaces/?virtual_machine_id=${vmhost_id}&enabled=false")
 	fi
 	if [[ -z "${jiface}" ]] ; then
 		jiface_names=""
 	else
 		jiface_names=$(echo "${jiface}" | ${J} '.results[].name' -r |tr -s '\n' ' ')
+		jiface_names_disabled=$(echo "${jiface_disabled}" | ${J} '.results[].name' -r |tr -s '\n' ' ')
+		jiface_names="${jiface_names} ${jiface_names_disabled}"
+
 	fi
 	log 1 "${hst} Found interfaces from netbox ${jiface_names}"
 	for i in "${!IFState[@]}" ; do
