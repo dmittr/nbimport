@@ -10,7 +10,9 @@ PID="/tmp/nbimport.pid"
 LOG="/home/nbimport/import.log"
 LOG2="/opt/nbimport_import.log"
 LOG_LEVEL=3
+LOG_HOOK=3
 LOG_STDOUT=1
+HOOK_SCRIPT="/bin/true"
 NONAME_MANUFACTURER=1
 LOGDATEFORMAT="%Y.%m.%d_%H:%M:%S"
 
@@ -30,7 +32,7 @@ function log(){
 	msg_level=$(($1 + 0))
 	test $msg_level -eq 5 && prefix="FATAL"
 	test $msg_level -eq 4 && prefix="ERROR"
-	test $msg_level -eq 3 && prefix="WARIN"
+	test $msg_level -eq 3 && prefix="WARNN"
 	test $msg_level -eq 2 && prefix="INFRM"
 	test $msg_level -eq 1 && prefix="DEBUG"
 	msg="$(date +${LOGDATEFORMAT}) ${prefix}: $2"
@@ -42,6 +44,9 @@ function log(){
 		test -f ${LOG} || echo "Can't create log file ${LOG}"
 		test -f ${LOG} || exit 1
 		echo "${msg}" >> $LOG
+	fi
+	if [[ ${LOG_HOOK} -le $msg_level ]] ; then
+		test -x "${HOOK_SCRIPT}" && ${HOOK_SCRIPT} "$msg"
 	fi
 }
 function die() {
@@ -422,12 +427,12 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 				fi
 				if [[ ! -z "${vm_post_data}" ]] ; then
 					if [[ -z "${jvm}" ]] ; then
-						log 3 "${hst} Create VM $vm - ${vm_post_data}"
+						log 3 "${hst} Create VM $vm - ${vm_post_data:0:30}..."
 						curl_post "virtualization/virtual-machines/" "{ 'tags':[${TAG_ID}] ${vm_post_data},'name':'${vm}','cluster':'${jcluster_id}' }"
 						log 1 "${hst} ${CurlStatus}"
 					else
 						jvm_id=$(echo "$jvm" | ${J} .id)
-						log 3 "${hst} Change VM $vm($jvm_id) - ${vm_post_data}"
+						log 3 "${hst} Change VM $vm($jvm_id) - ${vm_post_data:0:30}..."
 						curl_patch "virtualization/virtual-machines/${jvm_id}/" "{ 'tags':[${TAG_ID}] ${vm_post_data} }"
 						log 1 "${hst} ${CurlStatus}"
 					fi
@@ -454,7 +459,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 # Материнская плата
 		jbaseboard=$(echo "${jinventory}" |grep  "name\":\"Base Board Information\"")
 		if [[ -z "${jbaseboard}" ]] ; then
-			log 3 "${hst} Create inventory Base Board Information ${DMI['BRDManufacturer']} ${DMI['BRDProductName']} ${DMI['BRDSerialNumber']}"
+			log 3 "${hst} Create inventory BaseBoard ${DMI['BRDManufacturer']} ${DMI['BRDProductName']} ${DMI['BRDSerialNumber']}"
 			curl_post "dcim/inventory-items/" "{ 'device':'${device_id}','name':'Base Board Information','manufacturer':'$(mfr_id "${DMI['BRDManufacturer']}")','part_id':'${DMI['BRDProductName']}','serial':'${DMI['BRDSerialNumber']}','discovered':'true','tags':[${TAG_ID}] }"
 			log 1 "${hst} ${CurlStatus}"
 		else
@@ -474,7 +479,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 					jcpu=$(echo "${jinventory}" |grep  -m 1 "name\":\"${i}\""|sed -e 's/[^a-zA-Z0-9":,{}_]//g')
 					dmicpu=$(echo "${CPUVersion[$i]}"|sed -e 's/[^a-zA-Z0-9":,{}_]//g')
 					if [[ ! $(echo " ${jcpu} " | grep "part_id\":\"${dmicpu}\"" ) ]] ; then
-						log 3 "${hst} Change inventory ${post_data}"
+						log 3 "${hst} Change inventory ${post_data:0:30}..."
 						curl_patch "dcim/inventory-items/${j}/" "${post_data}"
 						log 1 "${hst} ${CurlStatus}"
 					fi
@@ -483,7 +488,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 				jinventory_ids=$(echo "${jinventory_ids}"|grep -v ^${j})
 			done
 			if [[ ! -z "${post_data}" ]] ; then
-				log 3 "${hst} Create inventory ${post_data}"
+				log 3 "${hst} Create inventory ${post_data:0:30}..."
 				curl_post "dcim/inventory-items/" "${post_data}"
 				log 1 "${hst} ${CurlStatus}"
 			fi
@@ -502,7 +507,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 					dmimempart=$(echo "${DMIMEMPartNumber[$i]}"|sed -e 's/[^a-zA-Z0-9":,{}_]//g')
 					dmimemdesc=$(echo "${DMIMEMSize[$i]}"|sed -e 's/[^a-zA-Z0-9":,{}_]//g')
 					if [[ ! $(echo " ${jmem} " | grep "part_id\":\"${dmimempart}\"" ) || ! $(echo " ${jmem} " | grep "description\":\"${dmimemdesc}\"" ) ]] ; then
-						log 3 "${hst} Change inventory ${post_data}"
+						log 3 "${hst} Change inventory ${post_data:0:30}..."
 						curl_patch "dcim/inventory-items/${j}/" "${post_data}"
 						log 1 "${hst} ${CurlStatus}"
 					fi
@@ -511,7 +516,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 				jinventory_ids=$(echo "${jinventory_ids}"|grep -v ^${j})
 			done
 			if [[ ! -z "${post_data}" ]] ; then
-				log 3 "${hst} Create inventory ${post_data}"
+				log 3 "${hst} Create inventory ${post_data:0:30}..."
 				curl_post "dcim/inventory-items/" "${post_data}"
 				log 1 "${hst} ${CurlStatus}"
 			fi
@@ -531,7 +536,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 					dmiblkdesc=$(echo "${BLKSize[$i]}"|sed -e 's/[^a-zA-Z0-9":,{}_]//g')
 					dmiblkser=$(echo "${BLKSerial[$i]}"|sed -e 's/[^a-zA-Z0-9":,{}_]//g')
 					if [[ ! $(echo " ${jblk} " | grep "part_id\":\"${dmiblkpart}\"" ) || ! $(echo " ${jblk} " | grep "description\":\"${dmiblkdesc}\"") || ! $(echo " ${jblk} " | grep "serial\":\"${dmiblkser}\"") ]] ; then
-						log 3 "${hst} Change inventory ${post_data}"
+						log 3 "${hst} Change inventory ${post_data:0:30}..."
 						curl_patch "dcim/inventory-items/${j}/" "${post_data}"
 						log 1 "${hst} ${CurlStatus}"
 					fi
@@ -540,7 +545,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 				jinventory_ids=$(echo "${jinventory_ids}"|grep -v ^${j})
 			done
 			if [[ ! -z "${post_data}" ]] ; then
-				log 3 "${hst} Create inventory ${post_data}"
+				log 3 "${hst} Create inventory ${post_data:0:30}..."
 				curl_post "dcim/inventory-items/" "${post_data}"
 				log 1 "${hst} ${CurlStatus}"
 			fi
