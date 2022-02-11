@@ -10,6 +10,7 @@ LOG="/home/nbimport/import.log"
 LOG2="/opt/nbimport_import.log"
 LOG_LEVEL=3
 LOG_STDOUT=1
+NONAME_MANUFACTURER=1
 LOGDATEFORMAT="%Y.%m.%d_%H:%M:%S"
 
 DIR=$(dirname $(readlink -f $0))
@@ -46,43 +47,53 @@ function extract_block() {
 	grep "^%${block}%" -A 9999 ${file} | tail -n +2 |grep  -B 9999 -m 1 "^%...%$" | head -n -1 | sed -e 's/ *$//g'
 }
 function curl_get(){
-	query=$1
-	${C} -s -H "Authorization: Token $TOKEN" -H "Content-Type: application/json" $NETBOX/api/$1	
+	query="$1"
+	out=$(${C} -s -H "Authorization: Token $TOKEN" -H "Content-Type: application/json" $NETBOX/api/${query})
+	CurlOut="${out}"
+	CurlStatus="GET exit-code=$?, req=${query}, out=${out:0:100}"
 }
 function curl_patch(){
-	query=$1
-	data=$(echo $2 |tr -s "'" "\"")
-	${C} -s --location --request PATCH -H "Authorization: Token $TOKEN" -H "Content-Type: application/json" "$NETBOX/api/$1" --data "$data"
+	query="$1"
+	data=$(echo $2 |tr "'" "\"")
+	out=$(${C} -s --location --request PATCH -H "Authorization: Token $TOKEN" -H "Content-Type: application/json" "$NETBOX/api/${query}" --data "$data")
+	CurlOut="${out}"
+	CurlStatus="PATCH exit-code=$?, req=${query}, data=${data}, out=${out:0:100}"
 }
 function curl_post(){
-	query=$1
-	data=$(echo $2 |tr -s "'" "\"")
-	${C} -s --location --request POST -H "Authorization: Token $TOKEN" -H "Content-Type: application/json" "$NETBOX/api/$1" --data "$data"
+	query="$1"
+	data=$(echo $2 |tr "'" "\"")
+	out=$(${C} -s --location --request POST -H "Authorization: Token $TOKEN" -H "Content-Type: application/json" "$NETBOX/api/${query}" --data "$data")
+	CurlOut="${out}"
+	CurlStatus="POST exit-code=$?, req=${query}, data=${data}, out=${out:0:100}"
 }
 function curl_delete(){
-	query=$1
-	${C} -s --location --request DELETE -H "Authorization: Token $TOKEN" -H "Content-Type: application/json" "$NETBOX/api/$1"
+	query="$1"
+	out=$(${C} -s --location --request DELETE -H "Authorization: Token $TOKEN" -H "Content-Type: application/json" "$NETBOX/api/${query}")
+	CurlOut="${out}"
+	CurlStatus="DELETE exit-code=$?, req=${query}, out=${out:0:100}"
 }
 
 function mfr_id(){
 	string=$(echo $1|tr -d "-" | tr -d ' '| grep -o "[[:alpha:]]*")
-	test -z "${ManufacturersList}" && ManufacturersList=$(curl_get "dcim/manufacturers/"|${J} -c '.results[]|{slug,id}'|sed -e 's/\"[a-Z]*\"://g' -e 's/[\{\}\"]//g'|tr -d "-" | tr -d ' ')
+	ret=""
+	curl_get "dcim/manufacturers/"
+	test -z "${ManufacturersList}" && ManufacturersList=$(echo "${CurlOut}"|${J} -c '.results[]|{slug,id}'|sed -e 's/\"[a-Z]*\"://g' -e 's/[\{\}\"]//g'|tr -d "-" | tr -d ' ')
 	while read -r i ; do
 		echo ${string} | grep -q -i "^$(echo $i | cut -d ',' -f 1)"
 		if [[ $? -eq 0 ]] ; then
-			echo $i | cut -d ',' -f 2
-			break
+			test -z "${ret}" && ret=$(echo $i | cut -d ',' -f 2)
 		fi
 	done <<< $(echo "${ManufacturersList}")
 	while read -r i ; do
-		for j in $(echo $i|cut -d ':' -f 2-|tr -s ',' ' ') ; do
+		for j in $(echo $i|cut -d ':' -f 2-|tr ',' ' ') ; do
 			echo ${string} | grep -q "^${j}"
 			if [[ $? -eq 0 ]] ; then
-				echo "${ManufacturersList}" | grep "^$(echo $i|cut -d ':' -f 1)" | cut -d ',' -f 2
-				break
+				test -z "${ret}" && ret=$(echo "${ManufacturersList}" | grep "^$(echo $i|cut -d ':' -f 1)" | cut -d ',' -f 2)
 			fi			
 		done
-	done <<< $(echo "${SLUG_DICT}")	
+	done <<< $(echo "${SLUG_DICT}")
+	test -z "${ret}" && ret=$NONAME_MANUFACTURER
+	echo "${ret}"
 }
 
 log 2 "Start"
@@ -149,11 +160,11 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 		DMI['SYSManufacturer']=$(echo "${dmd}"|grep -A 99 "^System Information"|grep -m1 "Manufacturer:"|cut -d ':' -f 2)
 		DMI['SYSProductName']=$(echo "${dmd}"|grep -A 99 "^System Information"|grep -m1 "Product Name:"|cut -d ':' -f 2)
 		DMI['SYSVersion']=$(echo "${dmd}"|grep -A 999 "^System Information"|grep -m1 "Version:"|cut -d ':' -f 2)
-		DMI['SYSSerialNumber']=$(echo "${dmd}"|grep -A 99 "^System Information"|grep -m1 "Serial Number:"|cut -d ':' -f 2)
+		DMI['SYSSerialNumber']=$(echo "${dmd}"|grep -A 99 "^System Information"|grep -m1 "Serial Number:"|cut -d ':' -f 2|sed -e 's/[^a-zA-Z0-9-]//g')
 		DMI['BRDManufacturer']=$(echo "${dmd}"|grep -A 99 "^Base Board Information"|grep -m1 "Manufacturer:"|cut -d ':' -f 2)
 		DMI['BRDProductName']=$(echo "${dmd}"|grep -A 99 "^Base Board Information"|grep -m1 "Product Name:"|cut -d ':' -f 2)
 		DMI['BRDVersion']=$(echo "${dmd}"|grep -A 99 "^Base Board Information"|grep -m1 "Version:"|cut -d ':' -f 2)
-		DMI['BRDSerialNumber']=$(echo "${dmd}"|grep -A 99 "^Base Board Information"|grep -m1 "Serial Number:"|cut -d ':' -f 2)
+		DMI['BRDSerialNumber']=$(echo "${dmd}"|grep -A 99 "^Base Board Information"|grep -m1 "Serial Number:"|cut -d ':' -f 2|sed -e 's/[^a-zA-Z0-9-]//g')
 		log 1 "${hst} SYSManufacturer=${DMI['SYSManufacturer']}, SYSProductName=${DMI['SYSProductName']}, SYSVersion=${DMI['SYSVersion']}, SYSSerialNumber=${DMI['SYSSerialNumber']}, BRDManufacturer=${DMI['BRDManufacturer']}, BRDProductName=${DMI['BRDProductName']}, BRDVersion=${DMI['BRDVersion']}, BRDSerialNumber=${DMI['BRDSerialNumber']}"
 
 # Процессоры
@@ -168,12 +179,12 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 		done
 
 # Память
-		RAMCount=$(echo "${dmd}"|grep -c "^Memory Device")
+		RAMCount=$(echo "${dmd}"|grep -c "^Memory Device$")
 		ptr=0
 		idx=0
 		for i in $(seq 1 ${RAMCount}) ; do
 			idx=$(($idx + 1))
-			ptr=$(( $(echo "${dmd}" | tail -n +$(($ptr + 1)) |grep  -m 1 -n "^Memory Device" | cut -d ':' -f 1) + ${ptr} ))
+			ptr=$(( $(echo "${dmd}" | tail -n +$(($ptr + 1)) |grep  -m 1 -n "^Memory Device$" | cut -d ':' -f 1) + ${ptr} ))
 			DMIMEMSize[$idx]=$(echo "${dmd}"|tail -n +${ptr}|grep -m1 "Size:"|cut -d ':' -f 2)
 			DMIMEMLocator[$idx]=$(echo "${dmd}"|tail -n +${ptr}|grep -m1 "Locator:"|cut -d ':' -f 2)
 			DMIMEMManufacturer[$idx]=$(echo "${dmd}"|tail -n +${ptr}|grep -m1 "Manufacturer:"|cut -d ':' -f 2)
@@ -311,11 +322,15 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 
 	if [[ -z "${hyp}" ]] ; then
 # Ищем устройсвто по серийному номеру и по имени
-		jdevice=$(curl_get "dcim/devices/?serial=${DMI['SYSSerialNumber']}")
+		curl_get "dcim/devices/?serial=${DMI['SYSSerialNumber']}"
+		log 1 "${hst} ${CurlStatus}"
+		jdevice="${CurlOut}"
 		if [[ $(echo "$jdevice"|${J} .count) -eq 1 ]] ; then
 			device_id=$(echo "$jdevice"|${J} .results[0].id)
 		else
-			jdevice=$(curl_get "dcim/devices/?name=${hst}")
+			curl_get "dcim/devices/?name=${hst}"
+			log 1 "${hst} ${CurlStatus}"
+			jdevice="${CurlOut}"
 			if [[ $(echo "$jdevice"|${J} .count) -eq 1 ]] ; then
 				device_id=$(echo "$jdevice"|${J} .results[0].id)
 			else
@@ -328,44 +343,57 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 		t=$(echo "$jdevice"|${J} .name)
 		if [[ "${t//\"/}" != "${hst}" ]] ; then
 			log 3 "${hst} Change name ${t//\"/} -> $hst"
-			curl_patch "dcim/devices/${device_id}/" "{'name':'${hst}'}" 1>/dev/null
+			curl_patch "dcim/devices/${device_id}/" "{'name':'${hst}'}"
+			log 1 "${hst} ${CurlStatus}"
 		fi
 # серийный номер
 		t=$(echo "$jdevice"|${J} .serial)
 		if [[ "${t//\"/}" != "${DMI['SYSSerialNumber']}" ]] ; then
 			log 3 "${hst} Change serial ${t//\"/} -> ${DMI['SYSSerialNumber']}"
-			curl_patch "dcim/devices/${device_id}/" "{'serial':'${DMI['SYSSerialNumber']}'}" 1>/dev/null
+			curl_patch "dcim/devices/${device_id}/" "{'serial':'${DMI['SYSSerialNumber']}'}"
+			log 1 "${hst} ${CurlStatus}"
 		fi
 # Виртуальные машины
 		if [[ ${#VDSState[@]} -gt 0 ]] ; then
-			jcluster_id=$(curl_get "dcim/devices/${device_id}/"|${J} .cluster.id)
+			curl_get "dcim/devices/${device_id}/"
+			log 1 "${hst} ${CurlStatus}"
+			jcluster_id=$(echo "${CurlOut}"|${J} .cluster.id)
 			if [[ "${jcluster_id}" == "null" || "${jcluster_id}" == "" ]] ; then
 				log 1 "${hst} Can't find attached cluster"
-				jcluster_id=$(curl_get "virtualization/clusters/?name=${hst}"|grep "\"device_count\":0"|${J} .results[0].id)
+				log 1 "${hst} ${CurlStatus}"
+				curl_get "virtualization/clusters/?name=${hst}"
+				jcluster_id=$(echo "${CurlOut}"|grep "\"device_count\":0"|${J} .results[0].id)
 				if [[ "${jcluster_id}" == "null" || "${jcluster_id}" == "" ]] ; then
 					log 1 "${hst} Can't find cluster by name ${hst}"
 				else
 					log 3 "${hst} Joining cluster ${jcluster_id} (found by name)"
-					curl_patch "dcim/devices/${device_id}/" "{'cluster':${jcluster_id}}" 1>/dev/null
+					curl_patch "dcim/devices/${device_id}/" "{'cluster':${jcluster_id}}"
+					log 1 "${hst} ${CurlStatus}"
 				fi
 			fi
 			if [[ "${jcluster_id}" == "null" || "${jcluster_id}" == "" ]] ; then
 				log 2 "${hst} Create cluster ${hst}"
-				curl_post "virtualization/clusters/" "{'name':'${hst}','type':'1','tags':[${TAG_ID}]}" 1>/dev/null
-				jcluster_id=$(curl_get "virtualization/clusters/?name=${hst}"|${J} .results[0].id)
+				curl_post "virtualization/clusters/" "{'name':'${hst}','type':'1','tags':[${TAG_ID}]}"
+				log 1 "${hst} ${CurlStatus}"
+				curl_get "virtualization/clusters/?name=${hst}"
+				jcluster_id=$(echo "${CurlOut}"|${J} .results[0].id)
 				if [[ "${jcluster_id}" == "null" || "${jcluster_id}" == "" ]] ; then
 					log 4 "${hst} Can't find or create new cluser_id"
 					break
 				fi
 			fi
 			log 1 "${hst} Cluster id = ${jcluster_id}"
-			jvms=$(curl_get "virtualization/virtual-machines/?cluster_id=${jcluster_id}&limit=0"|${J} ".results[]" -c)
+			curl_get "virtualization/virtual-machines/?cluster_id=${jcluster_id}&limit=0"
+			log 1 "${hst} ${CurlStatus}"
+			jvms=$(echo "${CurlOut}"|${J} ".results[]" -c)
 			for vm in ${!VDSState[@]} ; do
 				jvm=$(echo "${jvms}"|grep "name\":\"${vm}\"")
 				jvms=$(echo "${jvms}"|grep -v "name\":\"${vm}\"")
 				vm_post_data=""
 				if [[ -z "${jvm}" ]] ; then
-					jvm=$(curl_get "virtualization/virtual-machines/?name=${vm}"|${J} ".results[0]" -c |grep  "name\":\"${vm}\"")
+					curl_get "virtualization/virtual-machines/?name=${vm}"
+					log 1 "${hst} ${CurlStatus}"
+					jvm=$(echo "${CurlOut}"|${J} ".results[0]" -c |grep  "name\":\"${vm}\"")
 					if [[ ! -z "${jvm}" ]] ; then
 						vm_post_data=",'cluster':'${jcluster_id}'"
 						log 3 "${hst} VM $vm already exists, cluster will be changed to ${jcluster_id}(${hst})"
@@ -388,11 +416,13 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 				if [[ ! -z "${vm_post_data}" ]] ; then
 					if [[ -z "${jvm}" ]] ; then
 						log 3 "${hst} Create VM $vm - ${vm_post_data}"
-						curl_post "virtualization/virtual-machines/" "{ 'tags':[${TAG_ID}] ${vm_post_data},'name':'${vm}','cluster':'${jcluster_id}' }" 1>/dev/null
+						curl_post "virtualization/virtual-machines/" "{ 'tags':[${TAG_ID}] ${vm_post_data},'name':'${vm}','cluster':'${jcluster_id}' }"
+						log 1 "${hst} ${CurlStatus}"
 					else
 						jvm_id=$(echo "$jvm" | ${J} .id)
 						log 3 "${hst} Change VM $vm($jvm_id) - ${vm_post_data}"
-						curl_patch "virtualization/virtual-machines/${jvm_id}/" "{ 'tags':[${TAG_ID}] ${vm_post_data} }" 1>/dev/null
+						curl_patch "virtualization/virtual-machines/${jvm_id}/" "{ 'tags':[${TAG_ID}] ${vm_post_data} }"
+						log 1 "${hst} ${CurlStatus}"
 					fi
 				else
 						log 1 "${hst} VM ${vm} unchanged"
@@ -403,19 +433,23 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 				if [[ "${jvm}" == *"status\":{\"value\":\"active\""* ]] ; then
 					jvm_id=$(echo "$jvm" | ${J} .id)
 					log 3 "${hst} Unknown or Lost VM ${lostvm}(${jvm_id}). Set status to 'Offline'"
-					curl_patch "virtualization/virtual-machines/${jvm_id}/" "{ 'status':'offline' }" 1>/dev/null
+					curl_patch "virtualization/virtual-machines/${jvm_id}/" "{ 'status':'offline' }"
+					log 1 "${hst} ${CurlStatus}"
 				fi
 			done
 		fi
 # Инвентори
-		log 2 "${hst} Inventory sync"
-		jinventory=$(curl_get "dcim/inventory-items/?device_id=${device_id}&discovered=true&limit=0" |${J} '.results[]' -c)
-		jinventory_ids=$(curl_get "dcim/inventory-items/?device_id=${device_id}&discovered=true&limit=0" |${J} .'results[].id' | tr -d '"')
+		log 1 "${hst} Inventory sync"
+		curl_get "dcim/inventory-items/?device_id=${device_id}&discovered=true&limit=0"
+		log 1 "${hst} ${CurlStatus}"
+		jinventory=$(echo "${CurlOut}"|${J} '.results[]' -c)
+		jinventory_ids=$(echo "${CurlOut}"|${J} .'results[].id' | tr -d '"')
 # Материнская плата
 		jbaseboard=$(echo "${jinventory}" |grep  "name\":\"Base Board Information\"")
 		if [[ -z "${jbaseboard}" ]] ; then
 			log 3 "${hst} Create inventory Base Board Information ${DMI['BRDManufacturer']} ${DMI['BRDProductName']} ${DMI['BRDSerialNumber']}"
-			curl_post "dcim/inventory-items/" "{ 'device':'${device_id}','name':'Base Board Information','manufacturer':'$(mfr_id "${DMI['BRDManufacturer']}")','part_id':'${DMI['BRDProductName']}','serial':'${DMI['BRDSerialNumber']}','discovered':'true','tags':[${TAG_ID}] }" 1>/dev/null
+			curl_post "dcim/inventory-items/" "{ 'device':'${device_id}','name':'Base Board Information','manufacturer':'$(mfr_id "${DMI['BRDManufacturer']}")','part_id':'${DMI['BRDProductName']}','serial':'${DMI['BRDSerialNumber']}','discovered':'true','tags':[${TAG_ID}] }"
+			log 1 "${hst} ${CurlStatus}"
 		else
 			jinventory_ids=$(echo "${jinventory_ids}"|grep -v ^$(echo ${jbaseboard}|${J} .id))
 			log 1 "${hst} inventory Base Board already exists"
@@ -427,12 +461,15 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 			for j in $(echo "${jinventory}"|grep  "name\":\"${i}\""|${J} .id) ; do
 				if [[ -z "${post_data}" ]] ; then
 					log 3 "${hst} Delete duplicate inventory with name=${i} and id=${j}"
-					curl_delete "dcim/inventory-items/${j}" 1>/dev/null
+					curl_delete "dcim/inventory-items/${j}"
+					log 1 "${hst} ${CurlStatus}"
 				else
-					jcpu=$(echo "${jinventory}" |grep  -m 1 "name\":\"${i}\"")
-					if [[ "${jcpu}" != *"part_id\":\"${CPUVersion[$i]}\""* ]] ; then
+					jcpu=$(echo "${jinventory}" |grep  -m 1 "name\":\"${i}\""|sed -e 's/[^a-zA-Z0-9":,{}_]//g')
+					dmicpu=$(echo "${CPUVersion[$i]}"|sed -e 's/[^a-zA-Z0-9":,{}_]//g')
+					if [[ ! $(echo " ${jcpu} " | grep "part_id\":\"${dmicpu}\"" ) ]] ; then
 						log 3 "${hst} Change inventory ${post_data}"
-						curl_patch "dcim/inventory-items/${j}/" "${post_data}" 1>/dev/null
+						curl_patch "dcim/inventory-items/${j}/" "${post_data}"
+						log 1 "${hst} ${CurlStatus}"
 					fi
 					post_data=""
 				fi
@@ -440,7 +477,8 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 			done
 			if [[ ! -z "${post_data}" ]] ; then
 				log 3 "${hst} Create inventory ${post_data}"
-				curl_post "dcim/inventory-items/" "${post_data}" 1>/dev/null
+				curl_post "dcim/inventory-items/" "${post_data}"
+				log 1 "${hst} ${CurlStatus}"
 			fi
 		done
 # Память
@@ -450,12 +488,16 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 			for j in $(echo "${jinventory}"|grep  "name\":\"${DMIMEMLocator[$i]}\""|${J} .id) ; do
 				if [[ -z "${post_data}" ]] ; then
 					log 3 "${hst} Delete duplicate inventory with name=${i} and id=${j}"
-					curl_delete "dcim/inventory-items/${j}" 1>/dev/null
+					curl_delete "dcim/inventory-items/${j}"
+					log 1 "${hst} ${CurlStatus}"
 				else
-					jmem=$(echo "${jinventory}" |grep  -m 1 "name\":\"${DMIMEMLocator[$i]}\"")
-					if [[ "${jmem}" != *"part_id\":\"${DMIMEMPartNumber[$i]}\""* || "${jmem}" != *"description\":\"${DMIMEMSize[$i]}\""* ]] ; then
+					jmem=$(echo "${jinventory}" |grep  -m 1 "name\":\"${DMIMEMLocator[$i]}\""|sed -e 's/[^a-zA-Z0-9":,{}_]//g')
+					dmimempart=$(echo "${DMIMEMPartNumber[$i]}"|sed -e 's/[^a-zA-Z0-9":,{}_]//g')
+					dmimemdesc=$(echo "${DMIMEMSize[$i]}"|sed -e 's/[^a-zA-Z0-9":,{}_]//g')
+					if [[ ! $(echo " ${jmem} " | grep "part_id\":\"${dmimempart}\"" ) || ! $(echo " ${jmem} " | grep "description\":\"${dmimemdesc}\"" ) ]] ; then
 						log 3 "${hst} Change inventory ${post_data}"
-						curl_patch "dcim/inventory-items/${j}/" "${post_data}" 1>/dev/null
+						curl_patch "dcim/inventory-items/${j}/" "${post_data}"
+						log 1 "${hst} ${CurlStatus}"
 					fi
 					post_data=""
 				fi
@@ -463,7 +505,8 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 			done
 			if [[ ! -z "${post_data}" ]] ; then
 				log 3 "${hst} Create inventory ${post_data}"
-				curl_post "dcim/inventory-items/" "${post_data}" 1>/dev/null
+				curl_post "dcim/inventory-items/" "${post_data}"
+				log 1 "${hst} ${CurlStatus}"
 			fi
 		done
 # BlockDevices
@@ -473,12 +516,17 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 			for j in $(echo "${jinventory}"|grep  "name\":\"${i}\""|${J} .id) ; do
 				if [[ -z "${post_data}" ]] ; then
 					log 3 "${hst} Delete duplicate inventory with name=${i} and id=${j}"
-					curl_delete "dcim/inventory-items/${j}" 1>/dev/null
+					curl_delete "dcim/inventory-items/${j}"
+					log 1 "${hst} ${CurlStatus}"
 				else
-					jblk=$(echo "${jinventory}" |grep  "name\":\"${i}\"")
-					if [[ "${jblk}" != *"part_id\":\"${BLKModel[$i]}\""* || "${jblk}" != *"serial\":\"${BLKSerial[$i]}\""* || "${jblk}" != *"description\":\"${BLKSize[$i]}\""* ]] ; then
+					jblk=$(echo "${jinventory}" |grep  -m 1 "name\":\"${i}\""|sed -e 's/[^a-zA-Z0-9":,{}_]//g')
+					dmiblkpart=$(echo "${BLKModel[$i]}"|sed -e 's/[^a-zA-Z0-9":,{}_]//g')
+					dmiblkdesc=$(echo "${BLKSize[$i]}"|sed -e 's/[^a-zA-Z0-9":,{}_]//g')
+					dmiblkser=$(echo "${BLKSerial[$i]}"|sed -e 's/[^a-zA-Z0-9":,{}_]//g')
+					if [[ ! $(echo " ${jblk} " | grep "part_id\":\"${dmiblkpart}\"" ) || ! $(echo " ${jblk} " | grep "description\":\"${dmiblkdesc}\"") || ! $(echo " ${jblk} " | grep "serial\":\"${dmiblkser}\"") ]] ; then
 						log 3 "${hst} Change inventory ${post_data}"
-						curl_patch "dcim/inventory-items/${j}/" "${post_data}" 1>/dev/null
+						curl_patch "dcim/inventory-items/${j}/" "${post_data}"
+						log 1 "${hst} ${CurlStatus}"
 					fi
 					post_data=""
 				fi
@@ -486,7 +534,8 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 			done
 			if [[ ! -z "${post_data}" ]] ; then
 				log 3 "${hst} Create inventory ${post_data}"
-				curl_post "dcim/inventory-items/" "${post_data}" 1>/dev/null
+				curl_post "dcim/inventory-items/" "${post_data}"
+				log 1 "${hst} ${CurlStatus}"
 			fi
 		done
 
@@ -497,12 +546,17 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 			part_id=$(echo "${jinventory}"|grep "id\":${i}"|${J} '.part_id')
 			discovered=$(echo "${jinventory}"|grep "id\":${i}"|${J} '.discovered')
 			if [[ "${discovered}" == "true" ]] ; then
-				log 4 "${hst} Please, delete missing discovered inventory with name=${name} and id=${i}"
+				log 4 "${hst} Delete missing discovered inventory ${name} json=$(echo "${jinventory}"|grep "id\":${i}")"
+				curl_delete "dcim/inventory-items/${i}"
+				log 1 "${hst} ${CurlStatus}"
 			fi
 		done
 	else
 # Блок обработки вирутальных машин
-		vmhost=$(curl_get "virtualization/virtual-machines/?name=${hst}&limit=0"|${J} .results[0] -c|grep "name\":\"${hst}\"")
+		curl_get "virtualization/virtual-machines/?name=${hst}&limit=0"
+		log 1 "${hst} ${CurlStatus}"
+		vmhost=$(echo "${CurlOut}"|${J} .results[0] -c|grep "name\":\"${hst}\"")
+
 		if [[ -z "${vmhost}" ]] ; then
 			log 4 "${hst} Virtual Machine ${hst} not found. Sync your hypervisor first."
 		else
@@ -513,12 +567,20 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 
 # Еще один общий блок для гипервизоров и вируальных машин
 # Интерфейсы
-	if [[ -z "${vmhost_id}" ]] ; then 
-		jiface=$(curl_get "dcim/interfaces/?device_id=${device_id}&limit=0")
-		jiface_disabled=$(curl_get "dcim/interfaces/?device_id=${device_id}&enabled=false&limit=0")
+	if [[ -z "${vmhost_id}" ]] ; then
+		curl_get "dcim/interfaces/?device_id=${device_id}&limit=0"
+		log 1 "${hst} ${CurlStatus}"
+		jiface="${CurlOut}"
+		curl_get "dcim/interfaces/?device_id=${device_id}&enabled=false&limit=0"
+		log 1 "${hst} ${CurlStatus}"
+		jiface_disabled="${CurlOut}"
 	else
-		jiface=$(curl_get "virtualization/interfaces/?virtual_machine_id=${vmhost_id}")
-		jiface_disabled=$(curl_get "virtualization/interfaces/?virtual_machine_id=${vmhost_id}&enabled=false&limit=0")
+		curl_get "virtualization/interfaces/?virtual_machine_id=${vmhost_id}"
+		log 1 "${hst} ${CurlStatus}"
+		jiface="${CurlOut}"
+		curl_get "virtualization/interfaces/?virtual_machine_id=${vmhost_id}&enabled=false&limit=0"
+		log 1 "${hst} ${CurlStatus}"
+		jiface_disabled="${CurlOut}"
 	fi
 	if [[ -z "${jiface}" ]] ; then
 		jiface_names=""
@@ -534,9 +596,11 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 			if [[ ! $(echo " ${jiface_names} " | grep "${i}" ) ]] ; then
 				log 3 "Create interface $i - mtu ${IFMtu[$i]} mac ${IFMac[$i]} type ${IFType[$i]}" 
 				if [[ -z "${vmhost_id}" ]] ; then 
-					curl_post "dcim/interfaces/" "{ 'device':'${device_id}','name':'${i}','type':'${IFType[$i]}','mac_address':'${IFMac[$i]}','mtu':'${IFMtu[$i]}','tags':[${TAG_ID}] }" 1>/dev/null
+					curl_post "dcim/interfaces/" "{ 'device':'${device_id}','name':'${i}','type':'${IFType[$i]}','mac_address':'${IFMac[$i]}','mtu':'${IFMtu[$i]}','tags':[${TAG_ID}] }"
+					log 1 "${hst} ${CurlStatus}"
 				else
-					curl_post "virtualization/interfaces/" "{ 'virtual_machine':'${vmhost_id}','name':'${i}','mac_address':'${IFMac[$i]}','mtu':'${IFMtu[$i]}','tags':[${TAG_ID}] }" 1>/dev/null
+					curl_post "virtualization/interfaces/" "{ 'virtual_machine':'${vmhost_id}','name':'${i}','mac_address':'${IFMac[$i]}','mtu':'${IFMtu[$i]}','tags':[${TAG_ID}] }"
+					log 1 "${hst} ${CurlStatus}"
 				fi
 			fi
 		fi
@@ -544,14 +608,22 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 
 # ip адреса
 	if [[ -z "${vmhost_id}" ]] ; then 
-		jiface=$(curl_get "dcim/interfaces/?device_id=${device_id}&limit=0")
+		curl_get "dcim/interfaces/?device_id=${device_id}&limit=0"
+		log 1 "${hst} ${CurlStatus}"
+		jiface="${CurlOut}"
 	else
-		jiface=$(curl_get "virtualization/interfaces/?virtual_machine_id=${vmhost_id}&limit=0")
+		curl_get "virtualization/interfaces/?virtual_machine_id=${vmhost_id}&limit=0"
+		log 1 "${hst} ${CurlStatus}"
+		jiface="${CurlOut}"
 	fi
 	if [[ -z "${vmhost_id}" ]] ; then 
-		jips=$(curl_get "ipam/ip-addresses/?device_id=${device_id}&limit=0")
+		curl_get "ipam/ip-addresses/?device_id=${device_id}&limit=0"
+		log 1 "${hst} ${CurlStatus}"
+		jips="${CurlOut}"
 	else
-		jips=$(curl_get "ipam/ip-addresses/?virtual_machine_id=${vmhost_id}&limit=0")
+		curl_get "ipam/ip-addresses/?virtual_machine_id=${vmhost_id}&limit=0"
+		log 1 "${hst} ${CurlStatus}"
+		jips="${CurlOut}"
 	fi
 	jips_string=$(echo -e "$jips" | ${J} .results[].address|tr -d '"'|tr -s '\n' ' ')
 	log 1 "${hst} Found ip addresses from netbox ${jips_string}"
@@ -567,9 +639,11 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 						else
 							log 3 "${hst} Create ip ${ip} - on ${i} (${jiface_id})"
 							if [[ -z "${vmhost_id}" ]] ; then
-								curl_post "ipam/ip-addresses/" "{ 'address':'${ip}','family':'4','status':'active','assigned_object_type':'dcim.interface','assigned_object_id':'${jiface_id}','tags':[${TAG_ID}] }" 1>/dev/null
+								curl_post "ipam/ip-addresses/" "{ 'address':'${ip}','family':'4','status':'active','assigned_object_type':'dcim.interface','assigned_object_id':'${jiface_id}','tags':[${TAG_ID}] }"
+								log 1 "${hst} ${CurlStatus}"
 							else
-								curl_post "ipam/ip-addresses/" "{ 'address':'${ip}','family':'4','status':'active','assigned_object_type':'virtualization.vminterface','assigned_object_id':'${jiface_id}','tags':[${TAG_ID}] }" 1>/dev/null
+								curl_post "ipam/ip-addresses/" "{ 'address':'${ip}','family':'4','status':'active','assigned_object_type':'virtualization.vminterface','assigned_object_id':'${jiface_id}','tags':[${TAG_ID}] }" 
+								log 1 "${hst} ${CurlStatus}"
 							fi
 						fi
 					else
