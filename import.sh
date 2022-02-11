@@ -35,7 +35,7 @@ function log(){
 	test $msg_level -eq 1 && prefix="DEBUG"
 	msg="$(date +${LOGDATEFORMAT}) ${prefix}: $2"
 	test -f "${LOG2}" && echo "${msg}" >> $LOG2
-	
+
 	if [[ ${LOG_LEVEL} -le $msg_level ]] ; then
 		test ${LOG_STDOUT} -gt 0 && echo "${msg}"
 		test -f ${LOG} || touch ${LOG} 2>/dev/null
@@ -553,7 +553,8 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 			part_id=$(echo "${jinventory}"|grep "id\":${i}"|${J} '.part_id')
 			discovered=$(echo "${jinventory}"|grep "id\":${i}"|${J} '.discovered')
 			if [[ "${discovered}" == "true" ]] ; then
-				log 4 "${hst} Delete missing discovered inventory ${name} json=$(echo "${jinventory}"|grep "id\":${i}")"
+				log 4 "${hst} Delete missing discovered inventory ${name}"
+				log 1 "${hst} Delete inventory json=$(echo "${jinventory}"|grep "id\":${i}")"
 				curl_delete "dcim/inventory-items/${i}"
 				log 1 "${hst} ${CurlStatus}"
 			fi
