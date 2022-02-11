@@ -164,6 +164,11 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 	smt=$(extract_block ${hostinfofile} "SMT"|sed -e 's/: */:/g')
 	vds=$(extract_block ${hostinfofile} "VDS")
 	log 1 "hst=${hst}, hyp=${hyp}, ipa=${#ipa} bytes, dmd=${#dmd} bytes, blk=${#blk} bytes, smt=${#smt} bytes, vds=${#vds} bytes"
+	if [[ -z "${hst}" ]] ; then
+		log 5 "$(basename ${hostinfofile}) hostname not found! Skip this file."
+		mv ${hostinfofile} ${HOSTINFO_READY_DIR}
+		break
+	fi
 
 	if [[ -z "${hyp}" ]] ; then
 # Платформа
