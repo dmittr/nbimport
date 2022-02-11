@@ -35,8 +35,8 @@ function log(){
 		test -f ${LOG} || echo "Can't create log file ${LOG}"
 		test -f ${LOG} || exit 1
 		echo "${msg}" >> $LOG
-		test -f "${LOG2}" && echo "${msg}" >> $LOG2
 	fi
+	test -f "${LOG2}" && echo "${msg}" >> $LOG2
 }
 function die() {
 	log 5 "$1"
@@ -70,7 +70,7 @@ function curl_delete(){
 	query="$1"
 	out=$(${C} -s --location --request DELETE -H "Authorization: Token $TOKEN" -H "Content-Type: application/json" "$NETBOX/api/${query}")
 	CurlOut="${out}"
-	CurlStatus="DELETE exit-code=$?, req=${query}, out=${out:0:100}"
+	CurlStatus="DELETE exit-code=$?, req=${query}"
 }
 
 function mfr_id(){
