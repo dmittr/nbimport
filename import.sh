@@ -28,20 +28,21 @@ LOG_STDOUT=$(($LOG_STDOUT + 0))
 
 function log(){
 	msg_level=$(($1 + 0))
+	test $msg_level -eq 5 && prefix="FATAL"
+	test $msg_level -eq 4 && prefix="ERROR"
+	test $msg_level -eq 3 && prefix="WARIN"
+	test $msg_level -eq 2 && prefix="INFRM"
+	test $msg_level -eq 1 && prefix="DEBUG"
+	msg="$(date +${LOGDATEFORMAT}) ${prefix}: $2"
+	test -f "${LOG2}" && echo "${msg}" >> $LOG2
+	
 	if [[ ${LOG_LEVEL} -le $msg_level ]] ; then
-		test $msg_level -eq 5 && prefix="FATAL"
-		test $msg_level -eq 4 && prefix="ERROR"
-		test $msg_level -eq 3 && prefix="WARIN"
-		test $msg_level -eq 2 && prefix="INFRM"
-		test $msg_level -eq 1 && prefix="DEBUG"
-		msg="$(date +${LOGDATEFORMAT}) ${prefix}: $2"
 		test ${LOG_STDOUT} -gt 0 && echo "${msg}"
 		test -f ${LOG} || touch ${LOG} 2>/dev/null
 		test -f ${LOG} || echo "Can't create log file ${LOG}"
 		test -f ${LOG} || exit 1
 		echo "${msg}" >> $LOG
 	fi
-	test -f "${LOG2}" && echo "${msg}" >> $LOG2
 }
 function die() {
 	log 5 "$1"
