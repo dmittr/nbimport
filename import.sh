@@ -6,6 +6,7 @@ HOSTINFO_DIR="/home/nbimport/"
 HOSTINFO_SUFFIX="hostinfo"
 HOSTINFO_READY_DIR="/home/nbimport/ready"
 
+PID="/tmp/nbimport.pid"
 LOG="/home/nbimport/import.log"
 LOG2="/opt/nbimport_import.log"
 LOG_LEVEL=3
@@ -17,6 +18,10 @@ DIR=$(dirname $(readlink -f $0))
 SLUG_DICT=$(cat ${DIR}/slug_dict.txt)
 
 test -f "${DIR}/nbimport.conf" && source "${DIR}/nbimport.conf" || exit 1
+
+test -f "${PID}" && exit 0
+trap "rm -f ${PID}" EXIT
+echo "$$" > ${PID}
 
 LOG_LEVEL=$(($LOG_LEVEL + 0))
 LOG_STDOUT=$(($LOG_STDOUT + 0))
