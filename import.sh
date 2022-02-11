@@ -272,8 +272,9 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 			elif [[ "${SMTSerial[$i]}" == *"${BLKSerial[$i]}"* ]] ; then
 				 BLKSerial[$i]=${SMTSerial[$i]}
 			else
-				 BLKSerial[$i]="${SMTSerial[$i]} (${BLKSerial[$i]})"
+				 BLKSerial[$i]="${SMTSerial[$i]} (${BLKSerial[$i]})"			 
 			fi
+			BLKSerial[$i]=${BLKSerial[$i]:0:48}
 			BLKVendor[$i]=${SMTVendor[$i]}
 		done
 	else
@@ -631,7 +632,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 	for i in "${!IFState[@]}" ; do
 		if [[ "${i}" =~ ^(eth|bond|enp|p|vlan|br) ]] ; then
 			if [[ ! -z "${IFIPs[$i]}" ]] ; then
-				for ip in "${IFIPs[$i]}" ; do
+				for ip in ${IFIPs[$i]} ; do
 					if [[ ! $(echo " ${jips_string} " | grep "${ip}" ) ]] ; then
 						jiface_id=$(echo "${jiface}"| ${J} ."results[]|select(.name == \"$i\").id")
 						if [[ "${jiface_id}" == "null" || "${jiface_id}" == "" ]] ; then

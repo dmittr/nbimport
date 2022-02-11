@@ -1,2 +1,3 @@
 noname:NODIMM,Noram
+samsung:00CE00B380CE
 hitachi:HGST
