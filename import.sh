@@ -132,6 +132,10 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 	unset DMI; declare -A DMI
 	unset CPUManufacturer; declare -A CPUManufacturer
 	unset CPUVersion; declare -A CPUVersion
+	unset DMIMEMSize; declare -A DMIMEMSize
+	unset DMIMEMLocator; declare -A DMIMEMLocator
+	unset DMIMEMManufacturer; declare -A DMIMEMManufacturer
+	unset DMIMEMPartNumber; declare -A DMIMEMPartNumber
 	unset BLKVendor; declare -A BLKVendor
 	unset BLKModel; declare -A BLKModel
 	unset BLKSerial; declare -A BLKSerial
@@ -186,6 +190,8 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 # Процессоры
 		CPUCount=$(echo "${dmd}"|grep -c "^Processor Information")
 		ptr=0
+		unset CPUManufacturer
+		unset CPUVersion
 		for i in $(seq 1 ${CPUCount}) ; do
 			ptr=$(( $(echo "${dmd}" | tail -n +$(($ptr+1)) |grep  -m 1 -n "^Processor Information" | cut -d ':' -f 1) + ${ptr} ))
 			DMICPUSocketDesignation=$(echo "${dmd}"|tail -n +${ptr}|grep -m1 "Socket Designation:"|cut -d ':' -f 2)
@@ -674,5 +680,4 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 	mv ${hostinfofile} ${HOSTINFO_READY_DIR}
 	log 2 "${hst} ($(basename ${hostinfofile})) ready!"
 done
-
 
