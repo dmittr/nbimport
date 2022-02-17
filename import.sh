@@ -413,15 +413,18 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 				jvm=$(echo "${jvms}"|grep "name\":\"${vm}\"")
 				jvms=$(echo "${jvms}"|grep -v "name\":\"${vm}\"")
 				vm_post_data=""
-				if [[ -z "${jvm}" ]] ; then
+
+				if [[ -z "${jvm}" && "${VDSState[$vm]}" == "active" ]] ; then
 					curl_get "virtualization/virtual-machines/?name=${vm}"
 					log 1 "${hst} ${CurlStatus}"
 					jvm=$(echo "${CurlOut}"|${J} ".results[0]" -c |grep  "name\":\"${vm}\"")
 					if [[ ! -z "${jvm}" ]] ; then
 						vm_post_data=",'cluster':'${jcluster_id}'"
-						log 3 "${hst} VM $vm already exists, cluster will be changed to ${jcluster_id}(${hst})"
+						jvm_old_cluster_id=$(echo "${jvm}")
+						log 3 "${hst} VM $vm already exists, cluster will be changed to ${jcluster_id}"
 					fi
 				fi
+
 				if [[ "${jvm}" != *"vcpus\":${VDSVCPU[$vm]}"* ]] ; then vm_post_data="${vm_post_data},'vcpus':${VDSVCPU[$vm]}" ; fi
 				if [[ "${jvm}" != *"memory\":${VDSMemory[$vm]}"* ]] ; then vm_post_data="${vm_post_data},'memory':'${VDSMemory[$vm]}'" ; fi
 				if [[ "${jvm}" != *"disk\":${VDSBLKTotalsize[$vm]}"* ]] ; then vm_post_data="${vm_post_data},'disk':${VDSBLKTotalsize[$vm]}" ; fi
@@ -438,12 +441,12 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 				fi
 				if [[ ! -z "${vm_post_data}" ]] ; then
 					if [[ -z "${jvm}" ]] ; then
-						log 3 "${hst} Create VM $vm - ${vm_post_data:0:30}..."
+						log 3 "${hst} Create VM $vm - ${vm_post_data:0:80}..."
 						curl_post "virtualization/virtual-machines/" "{ 'tags':[${TAG_ID}] ${vm_post_data},'name':'${vm}','cluster':'${jcluster_id}' }"
 						log 1 "${hst} ${CurlStatus}"
 					else
 						jvm_id=$(echo "$jvm" | ${J} .id)
-						log 3 "${hst} Change VM $vm($jvm_id) - ${vm_post_data:0:30}..."
+						log 3 "${hst} Change VM $vm($jvm_id) - ${vm_post_data:0:80}..."
 						curl_patch "virtualization/virtual-machines/${jvm_id}/" "{ 'tags':[${TAG_ID}] ${vm_post_data} }"
 						log 1 "${hst} ${CurlStatus}"
 					fi
@@ -490,7 +493,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 					jcpu=$(echo "${jinventory}" |grep  -m 1 "name\":\"${i}\""|sed -e 's/[^a-zA-Z0-9":,{}_]//g')
 					dmicpu=$(echo "${CPUVersion[$i]}"|sed -e 's/[^a-zA-Z0-9":,{}_]//g')
 					if [[ ! $(echo " ${jcpu} " | grep "part_id\":\"${dmicpu}\"" ) ]] ; then
-						log 3 "${hst} Change inventory ${post_data:0:30}..."
+						log 3 "${hst} Change inventory ${post_data:0:50}..."
 						curl_patch "dcim/inventory-items/${j}/" "${post_data}"
 						log 1 "${hst} ${CurlStatus}"
 					fi
@@ -499,7 +502,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 				jinventory_ids=$(echo "${jinventory_ids}"|grep -v ^${j})
 			done
 			if [[ ! -z "${post_data}" ]] ; then
-				log 3 "${hst} Create inventory ${post_data:0:30}..."
+				log 3 "${hst} Create inventory ${post_data:0:50}..."
 				curl_post "dcim/inventory-items/" "${post_data}"
 				log 1 "${hst} ${CurlStatus}"
 			fi
@@ -518,7 +521,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 					dmimempart=$(echo "${DMIMEMPartNumber[$i]}"|sed -e 's/[^a-zA-Z0-9":,{}_]//g')
 					dmimemdesc=$(echo "${DMIMEMSize[$i]}"|sed -e 's/[^a-zA-Z0-9":,{}_]//g')
 					if [[ ! $(echo " ${jmem} " | grep "part_id\":\"${dmimempart}\"" ) || ! $(echo " ${jmem} " | grep "description\":\"${dmimemdesc}\"" ) ]] ; then
-						log 3 "${hst} Change inventory ${post_data:0:30}..."
+						log 3 "${hst} Change inventory ${post_data:0:50}..."
 						curl_patch "dcim/inventory-items/${j}/" "${post_data}"
 						log 1 "${hst} ${CurlStatus}"
 					fi
@@ -527,7 +530,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 				jinventory_ids=$(echo "${jinventory_ids}"|grep -v ^${j})
 			done
 			if [[ ! -z "${post_data}" ]] ; then
-				log 3 "${hst} Create inventory ${post_data:0:30}..."
+				log 3 "${hst} Create inventory ${post_data:0:50}..."
 				curl_post "dcim/inventory-items/" "${post_data}"
 				log 1 "${hst} ${CurlStatus}"
 			fi
@@ -547,7 +550,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 					dmiblkdesc=$(echo "${BLKSize[$i]}"|sed -e 's/[^a-zA-Z0-9":,{}_]//g')
 					dmiblkser=$(echo "${BLKSerial[$i]}"|sed -e 's/[^a-zA-Z0-9":,{}_]//g')
 					if [[ ! $(echo " ${jblk} " | grep "part_id\":\"${dmiblkpart}\"" ) || ! $(echo " ${jblk} " | grep "description\":\"${dmiblkdesc}\"") || ! $(echo " ${jblk} " | grep "serial\":\"${dmiblkser}\"") ]] ; then
-						log 3 "${hst} Change inventory ${post_data:0:30}..."
+						log 3 "${hst} Change inventory ${post_data:0:50}..."
 						curl_patch "dcim/inventory-items/${j}/" "${post_data}"
 						log 1 "${hst} ${CurlStatus}"
 					fi
@@ -556,7 +559,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 				jinventory_ids=$(echo "${jinventory_ids}"|grep -v ^${j})
 			done
 			if [[ ! -z "${post_data}" ]] ; then
-				log 3 "${hst} Create inventory ${post_data:0:30}..."
+				log 3 "${hst} Create inventory ${post_data:0:50}..."
 				curl_post "dcim/inventory-items/" "${post_data}"
 				log 1 "${hst} ${CurlStatus}"
 			fi
@@ -569,7 +572,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 			part_id=$(echo "${jinventory}"|grep "id\":${i}"|${J} '.part_id')
 			discovered=$(echo "${jinventory}"|grep "id\":${i}"|${J} '.discovered')
 			if [[ "${discovered}" == "true" ]] ; then
-				log 4 "${hst} Delete missing discovered inventory ${name}"
+				log 4 "${hst} Delete missing discovered inventory ${name} ${part_id}"
 				log 1 "${hst} Delete inventory json=$(echo "${jinventory}"|grep "id\":${i}")"
 				curl_delete "dcim/inventory-items/${i}"
 				log 1 "${hst} ${CurlStatus}"
