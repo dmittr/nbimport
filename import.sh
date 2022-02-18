@@ -415,7 +415,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 				vm_action="ignore"
 				vm_post_data=""
 				vm_old_cluster=""
-
+				log 1 "${hst} VM jvm=${jvm:0:80}"
 
 				if [[ -z "${jvm}" ]] ; then
 					curl_get "virtualization/virtual-machines/?name=${vm}"
