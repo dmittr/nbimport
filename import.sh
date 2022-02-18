@@ -466,6 +466,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 							else
 								jvm_id=$(echo "$jvm" | ${J} .id)
 								vm_old_cluster_name=$(echo "${vm_old_cluster}"|${J} .name)
+								log 1 "${hst} ${vm_old_cluster_name} ${vm_old_cluster}"
 								log 3 "${hst} Move and Edit VM $vm($jvm_id) from ${vm_old_cluster_name} - ${vm_post_data:0:80}..."
 								curl_patch "virtualization/virtual-machines/${jvm_id}/" "{ 'tags':[${TAG_ID}] ${vm_post_data} }"
 								log 1 "${hst} ${CurlStatus}"
