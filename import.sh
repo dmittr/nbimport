@@ -412,46 +412,70 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 			for vm in ${!VDSState[@]} ; do
 				jvm=$(echo "${jvms}"|grep "name\":\"${vm}\"")
 				jvms=$(echo "${jvms}"|grep -v "name\":\"${vm}\"")
+				vm_action="ignore"
 				vm_post_data=""
+				vm_old_cluster=""
 
-				if [[ -z "${jvm}" && "${VDSState[$vm]}" == "active" ]] ; then
+
+				if [[ -z "${jvm}" ]] ; then
 					curl_get "virtualization/virtual-machines/?name=${vm}"
 					log 1 "${hst} ${CurlStatus}"
 					jvm=$(echo "${CurlOut}"|${J} ".results[0]" -c |grep  "name\":\"${vm}\"")
-					if [[ ! -z "${jvm}" ]] ; then
-						vm_post_data=",'cluster':'${jcluster_id}'"
-						jvm_old_cluster_id=$(echo "${jvm}")
-						log 3 "${hst} VM $vm already exists, cluster will be changed to ${jcluster_id}"
+					if [[ "${VDSState[$vm]}" == "active" && "${jvm}" == "" ]] ; then
+						vm_action="create"
 					fi
-				fi
-
-				if [[ "${jvm}" != *"vcpus\":${VDSVCPU[$vm]}"* ]] ; then vm_post_data="${vm_post_data},'vcpus':${VDSVCPU[$vm]}" ; fi
-				if [[ "${jvm}" != *"memory\":${VDSMemory[$vm]}"* ]] ; then vm_post_data="${vm_post_data},'memory':'${VDSMemory[$vm]}'" ; fi
-				if [[ "${jvm}" != *"disk\":${VDSBLKTotalsize[$vm]}"* ]] ; then vm_post_data="${vm_post_data},'disk':${VDSBLKTotalsize[$vm]}" ; fi
-				if [[ "${jvm}" != *"status\":{\"value\":\"${VDSState[$vm]}"* ]] ; then vm_post_data="${vm_post_data},'status':'${VDSState[$vm]}'" ; fi
-# часть с информацией от nbimport
-				jvm_blkcomment=$(echo "$jvm" | ${J} .comments|sed -e 's/^"//' -e 's/"$//' -e 's/end-of-nbimport.*$//g')
-
-				if [[ "${jvm_blkcomment}" != "${VDSBLKData[$vm]}" ]] ; then
-# часть с информацией от пользователя
-					jvm_comment=$(echo "$jvm" | ${J} .comments|sed -e 's/^"//' -e 's/"$//' -e 's/^.*end-of-nbimport\\r\\n\*\*\*\\r\\n//g')
-					test -z "${jvm_comment}" && jvm_comment="place comment here"
-					vm_post_data="${vm_post_data},'comments':'${VDSBLKData[$vm]}end-of-nbimport\r\n***\r\n${jvm_comment}'"
-					log 1 "${hst} User Comment $jvm_comment"
-				fi
-				if [[ ! -z "${vm_post_data}" ]] ; then
-					if [[ -z "${jvm}" ]] ; then
-						log 3 "${hst} Create VM $vm - ${vm_post_data:0:80}..."
-						curl_post "virtualization/virtual-machines/" "{ 'tags':[${TAG_ID}] ${vm_post_data},'name':'${vm}','cluster':'${jcluster_id}' }"
-						log 1 "${hst} ${CurlStatus}"
-					else
-						jvm_id=$(echo "$jvm" | ${J} .id)
-						log 3 "${hst} Change VM $vm($jvm_id) - ${vm_post_data:0:80}..."
-						curl_patch "virtualization/virtual-machines/${jvm_id}/" "{ 'tags':[${TAG_ID}] ${vm_post_data} }"
-						log 1 "${hst} ${CurlStatus}"
+					if [[ "${VDSState[$vm]}" == "active" && "${jvm}" != "" ]] ; then
+						vm_action="edit"
+						vm_post_data=",'cluster':'${jcluster_id}'"
+						vm_old_cluster="${jvm}"
+					fi
+					if [[ "${VDSState[$vm]}" != "active" && "${jvm}" == "" ]] ; then
+						vm_action="create"
 					fi
 				else
+					vm_action="edit"
+				fi
+
+				if [[ "${vm_action}" != "ignore" ]] ; then
+					if [[ "${jvm}" != *"vcpus\":${VDSVCPU[$vm]}"* ]] ; then vm_post_data="${vm_post_data},'vcpus':${VDSVCPU[$vm]}" ; fi
+					if [[ "${jvm}" != *"memory\":${VDSMemory[$vm]}"* ]] ; then vm_post_data="${vm_post_data},'memory':'${VDSMemory[$vm]}'" ; fi
+					if [[ "${jvm}" != *"disk\":${VDSBLKTotalsize[$vm]}"* ]] ; then vm_post_data="${vm_post_data},'disk':${VDSBLKTotalsize[$vm]}" ; fi
+					if [[ "${jvm}" != *"status\":{\"value\":\"${VDSState[$vm]}"* ]] ; then vm_post_data="${vm_post_data},'status':'${VDSState[$vm]}'" ; fi
+
+# часть с информацией от nbimport
+					jvm_blkcomment=$(echo "$jvm" | ${J} .comments|sed -e 's/^"//' -e 's/"$//' -e 's/end-of-nbimport.*$//g')
+					if [[ "${jvm_blkcomment}" != "${VDSBLKData[$vm]}" ]] ; then
+# часть с информацией от пользователя
+						jvm_comment=$(echo "$jvm" | ${J} .comments|sed -e 's/^"//' -e 's/"$//' -e 's/^.*end-of-nbimport\\r\\n\*\*\*\\r\\n//g')
+						test -z "${jvm_comment}" && jvm_comment="place comment here"
+						vm_post_data="${vm_post_data},'comments':'${VDSBLKData[$vm]}end-of-nbimport\r\n***\r\n${jvm_comment}'"
+						log 1 "${hst} User Comment $jvm_comment"
+					fi
+
+					if [[ "${vm_post_data}" != "" ]] ; then
+						if [[ "${vm_action}" != "create" ]] ; then
+							log 3 "${hst} Create VM $vm - ${vm_post_data:0:80}..."
+							curl_post "virtualization/virtual-machines/" "{ 'tags':[${TAG_ID}] ${vm_post_data},'name':'${vm}','cluster':'${jcluster_id}' }"
+							log 1 "${hst} ${CurlStatus}"
+						elif [[ "${vm_action}" != "edit" ]] ; then
+							if [[ "${vm_old_cluster}" == "" ]] ; then
+								jvm_id=$(echo "$jvm" | ${J} .id)
+								log 3 "${hst} Edit VM $vm($jvm_id) - ${vm_post_data:0:80}..."
+								curl_patch "virtualization/virtual-machines/${jvm_id}/" "{ 'tags':[${TAG_ID}] ${vm_post_data} }"
+								log 1 "${hst} ${CurlStatus}"
+							else
+								jvm_id=$(echo "$jvm" | ${J} .id)
+								vm_old_cluster_name=$(echo "${vm_old_cluster}"|${J} .name)
+								log 3 "${hst} Move and Edit VM $vm($jvm_id) from ${vm_old_cluster_name} - ${vm_post_data:0:80}..."
+								curl_patch "virtualization/virtual-machines/${jvm_id}/" "{ 'tags':[${TAG_ID}] ${vm_post_data} }"
+								log 1 "${hst} ${CurlStatus}"
+							fi
+						fi
+					else
 						log 1 "${hst} VM ${vm} unchanged"
+					fi
+				else
+					log 1 "${hst} VM ${vm} ignored"
 				fi
 			done
 			for lostvm in $(echo "${jvms}" | ${J} .name | tr -d '"') ; do
