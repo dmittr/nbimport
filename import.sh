@@ -453,11 +453,11 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 					fi
 
 					if [[ "${vm_post_data}" != "" ]] ; then
-						if [[ "${vm_action}" != "create" ]] ; then
+						if [[ "${vm_action}" == "create" ]] ; then
 							log 3 "${hst} Create VM $vm - ${vm_post_data:0:80}..."
 							curl_post "virtualization/virtual-machines/" "{ 'tags':[${TAG_ID}] ${vm_post_data},'name':'${vm}','cluster':'${jcluster_id}' }"
 							log 1 "${hst} ${CurlStatus}"
-						elif [[ "${vm_action}" != "edit" ]] ; then
+						elif [[ "${vm_action}" == "edit" ]] ; then
 							if [[ "${vm_old_cluster}" == "" ]] ; then
 								jvm_id=$(echo "$jvm" | ${J} .id)
 								log 3 "${hst} Edit VM $vm($jvm_id) - ${vm_post_data:0:80}..."
