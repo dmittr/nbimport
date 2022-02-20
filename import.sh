@@ -190,8 +190,6 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 # Процессоры
 		CPUCount=$(echo "${dmd}"|grep -c "^Processor Information")
 		ptr=0
-		unset CPUManufacturer
-		unset CPUVersion
 		for i in $(seq 1 ${CPUCount}) ; do
 			ptr=$(( $(echo "${dmd}" | tail -n +$(($ptr+1)) |grep  -m 1 -n "^Processor Information" | cut -d ':' -f 1) + ${ptr} ))
 			DMICPUSocketDesignation=$(echo "${dmd}"|tail -n +${ptr}|grep -m1 "Socket Designation:"|cut -d ':' -f 2)
