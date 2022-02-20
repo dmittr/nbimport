@@ -317,9 +317,12 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 			IFBlock=$(echo "${ipa}"|tail -n +$(( ${ptr} + 1 )) |grep -B 999 -m1 "^[[:digit:]]*: "|head -n -1)
 		fi
 		IFMac[$IFName]=$(echo "${IFBlock}"|grep -o -m 1 "link\/[[:alpha:]]* [0-9a-f\:]*" | cut -d ' ' -f 2)
-		IFType[$IFName]="virtual"
 		if [[ $(echo "${IFBlock}"|grep " mii_status ") ]] ; then
 			IFType[$IFName]="1000base-t"
+		elif [[ "${IFName}" =~ ^(eth|eno|enp|ens|p|P)[0-9] ]] ; then
+			IFType[$IFName]="1000base-t"
+		else
+			IFType[$IFName]="virtual"
 		fi
 		IFIPs[$IFName]=$(echo "${IFBlock}"|grep -o "inet [0-9\./]*" | cut -d ' ' -f 2 | tr -s '\n' ' ')
 		log 1 "${hst} IFIP $IFName == ${IFState[$IFName]} ${IFMtu[$IFName]} ${IFMac[$IFName]} ${IFType[$IFName]} ${IFIPs[$IFName]}"
@@ -650,7 +653,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 	fi
 	log 1 "${hst} Found interfaces from netbox ${jiface_names}"
 	for i in "${!IFState[@]}" ; do
-		if [[ "${i}" =~ ^(eth|bond|enp|p|vlan|br) ]] ; then
+		if [[ "${i}" =~ ^(eth|eno|enp|ens|br|p|P)[0-9][0-9]*[sfduci0-9]* ]] ; then
 			if [[ ! $(echo " ${jiface_names} " | grep "${i}" ) ]] ; then
 				log 3 "Create interface $i - mtu ${IFMtu[$i]} mac ${IFMac[$i]} type ${IFType[$i]}" 
 				if [[ -z "${vmhost_id}" ]] ; then 
@@ -687,28 +690,26 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 	log 1 "${hst} Found ip addresses from netbox ${jips_string}"
 
 	for i in "${!IFState[@]}" ; do
-		if [[ "${i}" =~ ^(eth|bond|enp|p|vlan|br) ]] ; then
-			if [[ ! -z "${IFIPs[$i]}" ]] ; then
-				for ip in ${IFIPs[$i]} ; do
-					if [[ ! $(echo " ${jips_string} " | grep "${ip}" ) ]] ; then
-						jiface_id=$(echo "${jiface}"| ${J} ."results[]|select(.name == \"$i\").id")
-						if [[ "${jiface_id}" == "null" || "${jiface_id}" == "" ]] ; then
-							log 4 "${hst}: Can't find interface_id for ${i}"
-						else
-							log 3 "${hst} Create ip ${ip} - on ${i} (${jiface_id})"
-							if [[ -z "${vmhost_id}" ]] ; then
-								curl_post "ipam/ip-addresses/" "{ 'address':'${ip}','family':'4','status':'active','assigned_object_type':'dcim.interface','assigned_object_id':'${jiface_id}','tags':[${TAG_ID}] }"
-								log 1 "${hst} ${CurlStatus}"
-							else
-								curl_post "ipam/ip-addresses/" "{ 'address':'${ip}','family':'4','status':'active','assigned_object_type':'virtualization.vminterface','assigned_object_id':'${jiface_id}','tags':[${TAG_ID}] }" 
-								log 1 "${hst} ${CurlStatus}"
-							fi
-						fi
+		if [[ ! -z "${IFIPs[$i]}" ]] ; then
+			for ip in ${IFIPs[$i]} ; do
+				if [[ ! $(echo " ${jips_string} " | grep "${ip}" ) ] ; then
+					jiface_id=$(echo "${jiface}"| ${J} ."results[]|select(.name == \"$i\").id")
+					if [[ "${jiface_id}" == "null" || "${jiface_id}" == "" ]] ; then
+						log 4 "${hst}: Can't find interface_id for ${i}"
 					else
-						log 1 "${hst} Skip interface=${i}, ip=${ip}"
+						log 3 "${hst} Create ip ${ip} - on ${i} (${jiface_id})"
+						if [[ -z "${vmhost_id}" ]] ; then
+							curl_post "ipam/ip-addresses/" "{ 'address':'${ip}','family':'4','status':'active','assigned_object_type':'dcim.interface','assigned_object_id':'${jiface_id}','tags':[${TAG_ID}] }"
+							log 1 "${hst} ${CurlStatus}"
+						else
+							curl_post "ipam/ip-addresses/" "{ 'address':'${ip}','family':'4','status':'active','assigned_object_type':'virtualization.vminterface','assigned_object_id':'${jiface_id}','tags':[${TAG_ID}] }" 
+							log 1 "${hst} ${CurlStatus}"
+						fi
 					fi
-				done
-			fi
+				else
+					log 1 "${hst} Skip interface=${i}, ip=${ip}"
+				fi
+			done
 		fi
 	done
 	mv ${hostinfofile} ${HOSTINFO_READY_DIR}
