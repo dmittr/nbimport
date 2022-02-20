@@ -410,17 +410,22 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 			log 1 "${hst} ${CurlStatus}"
 			jvms=$(echo "${CurlOut}"|${J} ".results[]" -c)
 			for vm in ${!VDSState[@]} ; do
+				curl_get "virtualization/virtual-machines/?name=${vm}"
+				log 1 "${hst} ${CurlStatus}"
+				jvm_by_name="${CurlOut}"
+				jvm_by_name_count=$(echo "${CurlOut}"|${J} ".count" -r)
+				jvm_by_name_count=$(($jvm_by_name_count + 0))
+				if [[ ${jvm_by_name_count} -gt 1 ]] ; then
+					log 4 "${hst} DUPLICATE VM $vm"
+					continue
+				fi
 				jvm=$(echo "${jvms}"|grep "name\":\"${vm}\"")
 				jvms=$(echo "${jvms}"|grep -v "name\":\"${vm}\"")
 				vm_action="ignore"
 				vm_post_data=""
 				vm_old_cluster=""
-				log 1 "${hst} VM jvm=${jvm:0:80}"
-
 				if [[ -z "${jvm}" ]] ; then
-					curl_get "virtualization/virtual-machines/?name=${vm}"
-					log 1 "${hst} ${CurlStatus}"
-					jvm=$(echo "${CurlOut}"|${J} ".results[0]" -c |grep  "name\":\"${vm}\"")
+					jvm=$(echo "${jvm_by_name}"|${J} ".results[0]" -c |grep  "name\":\"${vm}\"")
 					if [[ "${VDSState[$vm]}" == "active" && "${jvm}" == "" ]] ; then
 						vm_action="create"
 					fi
@@ -465,9 +470,10 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 								log 1 "${hst} ${CurlStatus}"
 							else
 								jvm_id=$(echo "$jvm" | ${J} .id)
-								vm_old_cluster_name=$(echo "${vm_old_cluster}"|${J} .name)
+								vm_old_cluster_name=$(echo "${vm_old_cluster}"|${J} -r .cluster.name)
+								vm_old_cluster_id=$(echo "${vm_old_cluster}"|${J} -r .cluster.id)
 								log 1 "${hst} ${vm_old_cluster_name} ${vm_old_cluster}"
-								log 3 "${hst} Move and Edit VM $vm($jvm_id) from ${vm_old_cluster_name} - ${vm_post_data:0:80}..."
+								log 3 "${hst} Move and Edit VM $vm($jvm_id) from ${vm_old_cluster_name}(${vm_old_cluster_id})"
 								curl_patch "virtualization/virtual-machines/${jvm_id}/" "{ 'tags':[${TAG_ID}] ${vm_post_data} }"
 								log 1 "${hst} ${CurlStatus}"
 							fi
