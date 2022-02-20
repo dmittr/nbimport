@@ -690,26 +690,28 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 	log 1 "${hst} Found ip addresses from netbox ${jips_string}"
 
 	for i in "${!IFState[@]}" ; do
-		if [[ ! -z "${IFIPs[$i]}" ]] ; then
-			for ip in ${IFIPs[$i]} ; do
-				if [[ ! $(echo " ${jips_string} " | grep "${ip}" ) ]] ; then
-					jiface_id=$(echo "${jiface}"| ${J} ."results[]|select(.name == \"$i\").id")
-					if [[ "${jiface_id}" == "null" || "${jiface_id}" == "" ]] ; then
-						log 4 "${hst}: Can't find interface_id for ${i}"
-					else
-						log 3 "${hst} Create ip ${ip} - on ${i} (${jiface_id})"
-						if [[ -z "${vmhost_id}" ]] ; then
-							curl_post "ipam/ip-addresses/" "{ 'address':'${ip}','family':'4','status':'active','assigned_object_type':'dcim.interface','assigned_object_id':'${jiface_id}','tags':[${TAG_ID}] }"
-							log 1 "${hst} ${CurlStatus}"
+		if [[ "${i}" =~ ^(eth|eno|enp|ens|br|p|P)[0-9][0-9]*[sfduci0-9]* ]] ; then
+			if [[ ! -z "${IFIPs[$i]}" ]] ; then
+				for ip in ${IFIPs[$i]} ; do
+					if [[ ! $(echo " ${jips_string} " | grep "${ip}" ) ]] ; then
+						jiface_id=$(echo "${jiface}"| ${J} ."results[]|select(.name == \"$i\").id")
+						if [[ "${jiface_id}" == "null" || "${jiface_id}" == "" ]] ; then
+							log 4 "${hst}: Can't find interface_id for ${i}"
 						else
-							curl_post "ipam/ip-addresses/" "{ 'address':'${ip}','family':'4','status':'active','assigned_object_type':'virtualization.vminterface','assigned_object_id':'${jiface_id}','tags':[${TAG_ID}] }" 
-							log 1 "${hst} ${CurlStatus}"
+							log 3 "${hst} Create ip ${ip} - on ${i} (${jiface_id})"
+							if [[ -z "${vmhost_id}" ]] ; then
+								curl_post "ipam/ip-addresses/" "{ 'address':'${ip}','family':'4','status':'active','assigned_object_type':'dcim.interface','assigned_object_id':'${jiface_id}','tags':[${TAG_ID}] }"
+								log 1 "${hst} ${CurlStatus}"
+							else
+								curl_post "ipam/ip-addresses/" "{ 'address':'${ip}','family':'4','status':'active','assigned_object_type':'virtualization.vminterface','assigned_object_id':'${jiface_id}','tags':[${TAG_ID}] }" 
+								log 1 "${hst} ${CurlStatus}"
+							fi
 						fi
+					else
+						log 1 "${hst} Skip interface=${i}, ip=${ip}"
 					fi
-				else
-					log 1 "${hst} Skip interface=${i}, ip=${ip}"
-				fi
-			done
+				done
+			fi
 		fi
 	done
 	mv ${hostinfofile} ${HOSTINFO_READY_DIR}
