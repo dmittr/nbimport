@@ -372,10 +372,12 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 		fi
 # серийный номер
 		t=$(echo "$jdevice"|${J} .serial)
-		if [[ "${t//\"/}" != "${DMI['SYSSerialNumber']}" ]] ; then
-			log 3 "${hst} Change serial ${t//\"/} -> ${DMI['SYSSerialNumber']}"
-			curl_patch "dcim/devices/${device_id}/" "{'serial':'${DMI['SYSSerialNumber']}'}"
-			log 1 "${hst} ${CurlStatus}"
+		if [[ -z "$t" ]] ; then
+			if [[ "${t//\"/}" != "${DMI['SYSSerialNumber']}" ]] ; then
+				log 3 "${hst} Change serial ${t//\"/} -> ${DMI['SYSSerialNumber']}"
+				curl_patch "dcim/devices/${device_id}/" "{'serial':'${DMI['SYSSerialNumber']}'}"
+				log 1 "${hst} ${CurlStatus}"
+			fi
 		fi
 # Виртуальные машины
 		if [[ ${#VDSState[@]} -gt 0 ]] ; then
