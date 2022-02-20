@@ -692,7 +692,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 	for i in "${!IFState[@]}" ; do
 		if [[ ! -z "${IFIPs[$i]}" ]] ; then
 			for ip in ${IFIPs[$i]} ; do
-				if [[ ! $(echo " ${jips_string} " | grep "${ip}" ) ] ; then
+				if [[ ! $(echo " ${jips_string} " | grep "${ip}" ) ]] ; then
 					jiface_id=$(echo "${jiface}"| ${J} ."results[]|select(.name == \"$i\").id")
 					if [[ "${jiface_id}" == "null" || "${jiface_id}" == "" ]] ; then
 						log 4 "${hst}: Can't find interface_id for ${i}"
