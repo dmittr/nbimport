@@ -216,6 +216,7 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 		while read -r i ; do
 			BLKName=$(echo $i |cut -d '|' -f 1|cut -d '=' -f 2)
 			BLKSizetmp=$(echo $i |cut -d '|' -f 2|cut -d '=' -f 2)
+			BLKSizetmp=$(($BLKSizetmp + 0))
 			BLKSize[$BLKName]="$(( $BLKSizetmp / 1000 / 1000 / 1000 )) Gb"
 			BLKModel[$BLKName]=$(echo $i |cut -d '|' -f 3|cut -d '=' -f 2)
 			BLKSerial[$BLKName]=$(echo $i |cut -d '|' -f 4|cut -d '=' -f 2)
