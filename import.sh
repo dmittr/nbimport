@@ -215,14 +215,18 @@ for hostinfofile in ${HOSTINFO_FILES} ; do
 # BlockDevices
 		while read -r i ; do
 			BLKName=$(echo $i |cut -d '|' -f 1|cut -d '=' -f 2)
-			BLKSizetmp=$(echo $i |cut -d '|' -f 2|cut -d '=' -f 2)
-			BLKSizetmp=$(($BLKSizetmp + 0))
-			BLKSize[$BLKName]="$(( $BLKSizetmp / 1000 / 1000 / 1000 )) Gb"
-			BLKModel[$BLKName]=$(echo $i |cut -d '|' -f 3|cut -d '=' -f 2)
-			BLKSerial[$BLKName]=$(echo $i |cut -d '|' -f 4|cut -d '=' -f 2)
-			BLKVendor[$BLKName]=$(echo ${BLKModel[$BLKName]} |cut -d ' ' -f 1)
-			test "${BLKModel[$BLKName]}" == "${BLKVendor[$BLKName]}" && BLKVendor[$BLKName]=""
-			log 1 "${hst} BLK $BLKName == ${BLKVendor[$BLKName]} ${BLKModel[$BLKName]} ${BLKSerial[$BLKName]} ${BLKSize[$BLKName]}"
+			if [[ ! -z "${BLKName}" ]] ; then
+				BLKSizetmp=$(echo $i |cut -d '|' -f 2|cut -d '=' -f 2)
+				BLKSizetmp=$(($BLKSizetmp + 0))
+				BLKSize[$BLKName]="$(( $BLKSizetmp / 1000 / 1000 / 1000 )) Gb"
+				BLKModel[$BLKName]=$(echo $i |cut -d '|' -f 3|cut -d '=' -f 2)
+				BLKSerial[$BLKName]=$(echo $i |cut -d '|' -f 4|cut -d '=' -f 2)
+				BLKVendor[$BLKName]=$(echo ${BLKModel[$BLKName]} |cut -d ' ' -f 1)
+				test "${BLKModel[$BLKName]}" == "${BLKVendor[$BLKName]}" && BLKVendor[$BLKName]=""
+				log 1 "${hst} BLK $BLKName == ${BLKVendor[$BLKName]} ${BLKModel[$BLKName]} ${BLKSerial[$BLKName]} ${BLKSize[$BLKName]}"
+			else
+				log 1 "${hst} BLKName is empty on line '$i'"
+			fi
 		done <<< $(echo "${blk}")
 
 # SMART
